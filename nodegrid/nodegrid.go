@@ -3,6 +3,8 @@ package reporter
 import (
 	"constellation_cli/pkg/lb"
 	"constellation_cli/pkg/node"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -166,6 +168,10 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 		close(gridResults)
 
 		networkOverview, networkGrid := <-nodeResults, <-gridResults
+
+		sort.Slice(networkOverview, func(i, j int) bool {
+			return strings.ToLower(networkOverview[i].info.Alias) < strings.ToLower(networkOverview[j].info.Alias)
+		})
 
 		PrintAsciiOutput(networkOverview, networkGrid)
 	} else {
