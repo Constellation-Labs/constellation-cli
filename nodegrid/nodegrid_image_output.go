@@ -38,7 +38,7 @@ func nodeStatusString(metrics *node.Metrics) string {
 	return fmt.Sprintf("/%s", metrics.NodeState)
 }
 
-func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[string]map[string]node.NodeInfo) {
+func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[string]map[string]node.NodeInfo, outputTheme string) {
 	baseXMargin := float64(4)
 	baseYMargin := float64(4)
 
@@ -70,10 +70,27 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 		panic(err)
 	}
 
-	textFace := fontFamily.Face(20.0, canvas.Black, canvas.FontRegular, canvas.FontNormal)
+	var backgroundColor = canvas.Transparent
+    var textColor = canvas.Black
+
+    ctx.SetFillColor(backgroundColor)
+
+	if outputTheme == "light" {
+		backgroundColor = canvas.White
+		textColor = canvas.Black
+	}else if outputTheme == "dark" {
+		backgroundColor = canvas.Black
+		textColor = canvas.White
+	}
+
+	ctx.SetFillColor(backgroundColor)
+	backgroundRectangle := canvas.Rectangle(canvasWidth, canvasHeight)
+	ctx.DrawPath(0, 0, backgroundRectangle)
+	ctx.SetFillColor(canvas.Transparent)
+
+	textFace := fontFamily.Face(20.0, textColor, canvas.FontRegular, canvas.FontNormal)
 
 	colNumbersHeight := float64(iconHeight + iconMargin)
-
 
 	headerText := fmt.Sprintf("#  %-30s %-21s %-10s %-10s %-10s %s", "Alias", "Address", "Version", "Snapshot", "Latency", "Status Lb/Node")
 

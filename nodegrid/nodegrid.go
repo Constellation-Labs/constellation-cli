@@ -10,7 +10,7 @@ import (
 )
 
 type Nodegrid interface {
-	BuildNetworkStatus(url string, silent bool, outputImage string)
+	BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string)
 }
 
 type nodegrid struct {}
@@ -150,7 +150,7 @@ func networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, 
 }
 
 
-func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage string) {
+func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string) {
 
 	globalClusterInfo, err := lb.GetClient(url).GetClusterInfo()
 
@@ -182,7 +182,7 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 		}
 
 		if outputImage != ""  {
-			BuildImageOutput(outputImage, networkOverview, networkGrid)
+			BuildImageOutput(outputImage, networkOverview, networkGrid, outputTheme)
 		}
 	} else {
 		println("error")

@@ -14,9 +14,19 @@ You can also ask for image output instead of ASCII, add `--silent` and `--image=
 
     cl_cli nodegrid http://lb.constellationnetwork.io:9000 --image=grid.png --silent
 
-File produced by the tool will look like the image, a PNG with transparent backgroun:
+File produced by the tool will look like the image, a PNG with by default transparent background:
 
 ![Image](nodegrid-image-output.png)
+
+You can switch image theme between transparent,dark and light.
+
+    cl_cli nodegrid http://lb.constellationnetwork.io:9000 --image=grid.png --silent --theme=dark
+    
+![Image Dark](nodegrid-image-output-dark.png)
+
+    cl_cli nodegrid http://lb.constellationnetwork.io:9000 --image=grid.png --silent --theme=light
+
+![Image Light](nodegrid-image-output-light.png)
 
 ### Roadmap
  - Code cleanup/rewrite for image/ascii output
