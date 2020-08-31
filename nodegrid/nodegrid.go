@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Nodegrid interface {
@@ -91,14 +92,17 @@ func buildNetworkGrid(ci *node.ClusterInfo) map[string]map[string]node.NodeInfo{
 type NodeOverview struct {
 	info node.NodeInfo
 	metrics *node.Metrics
+	metricsResponseDuration time.Duration
 }
 
 func buildNodeOverviewWorker(wg *sync.WaitGroup, nodes <-chan node.NodeInfo, result chan<- NodeOverview) {
 	defer wg.Done()
 
 	for nodeInfo := range nodes {
+		start := time.Now()
 		m, _ := node.GetClient(nodeInfo.Ip).GetNodeMetrics()
-		result <- NodeOverview { nodeInfo, m}
+		elapsed := time.Since(start)
+		result <- NodeOverview { nodeInfo, m, elapsed}
 	}
 }
 
@@ -173,7 +177,13 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 			return strings.ToLower(networkOverview[i].info.Alias) < strings.ToLower(networkOverview[j].info.Alias)
 		})
 
-		PrintAsciiOutput(networkOverview, networkGrid)
+		if silent == false {
+			PrintAsciiOutput(networkOverview, networkGrid)
+		}
+
+		if outputImage != ""  {
+			BuildImageOutput(outputImage, networkOverview, networkGrid)
+		}
 	} else {
 		println("error")
 		println(err.Error())

@@ -3,6 +3,7 @@ package reporter
 import (
 	"constellation_cli/pkg/node"
 	"fmt"
+	"time"
 )
 
 const (
@@ -66,23 +67,36 @@ func printableNodeStatus(metrics *node.Metrics) string {
 	return fmt.Sprintf("/"+statusColorFmt(metrics.NodeState), metrics.NodeState)
 }
 
+func fmtLatency(d time.Duration) string{
+
+	if d.Seconds() >= 1 {
+		return fmt.Sprintf("%.3f[s]", d.Seconds())
+	}
+
+	return fmt.Sprintf("%d[ms]", d.Milliseconds())
+}
+
 func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string]node.NodeInfo) {
 
 	fmt.Printf("Constellation Hypergraph Network nodes [%d], majority status\n", len(clusterOverview))
 
-	fmt.Printf("\u001B[1;35m##  %-20s %-16s      %s    %s  %s\u001B[0m\n", "Alias", "Address", "Version", "Snapshot", "Status Lb/Node")
+	fmt.Printf("\u001B[1;35m##  %-20s %-21s %-10s %-10s %-10s %s\u001B[0m\n", "Alias", "Address", "Version", "Snapshot", "Latency", "Status Lb/Node")
 	for i, nodeOverview := range clusterOverview {
 		var version = "?"
 		var snap = "?"
+		var latency = "♾"
+
 		if nodeOverview.metrics != nil {
 			version = nodeOverview.metrics.Version
 			snap = nodeOverview.metrics.LastSnapshotHeight
+			latency = fmtLatency(nodeOverview.metricsResponseDuration)
 		}
 
-		fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-20s %-21s %-10s %-9s %s%s\n", i, nodeOverview.info.Alias,
+		fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-20s %-21s %-10s %-10s %-10s %s%s\n", i, nodeOverview.info.Alias,
 			fmt.Sprintf("%s:%d", nodeOverview.info.Ip.Host, nodeOverview.info.Ip.Port),
 			version,
 			snap,
+			latency,
 			fmt.Sprintf(statusColorFmt(nodeOverview.info.Status), nodeOverview.info.Status),
 			printableNodeStatus(nodeOverview.metrics))
 	}
