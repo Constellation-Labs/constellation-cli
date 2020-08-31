@@ -4,9 +4,11 @@ on:
   release:
     types:
       - created
+env:
+  GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -15,11 +17,62 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: '1.14'
+      - name: Get release
+        id: get_release
+        uses: bruceadams/get-release@v1.2.0
       - name: Build
-        run: make build-linux
-      - name: Upload the artifacts
-        uses: skx/github-action-publish-binaries@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: make build && mv cl_cli cl_cli-linux
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
         with:
-          args: 'cl_cli'
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: ./cl_cli-linux
+          asset_name: cl_cli-linux
+          asset_content_type: application/zip
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go Lang
+        uses: actions/setup-go@v1
+        with:
+          go-version: '1.14'
+      - name: Get release
+        id: get_release
+        uses: bruceadams/get-release@v1.2.0
+      - name: Build
+        run: make build && mv cl_cli cl_cli-macos
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: ./cl_cli-macos
+          asset_name: cl_cli-macos
+          asset_content_type: application/zip
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go Lang
+        uses: actions/setup-go@v1
+        with:
+          go-version: '1.14'
+      - name: Get release
+        id: get_release
+        uses: bruceadams/get-release@v1.2.0
+      - name: Build
+        run: |
+         make build
+         mv cl_cli cl_cli-windows.exe
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: ./cl_cli-windows.exe
+          asset_name: cl_cli-windows.exe
+          asset_content_type: application/zip
