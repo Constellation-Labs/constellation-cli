@@ -2,4 +2,5 @@
 /.idea
 *.iml
 go.sum
-./cl_cli
+cl_cli
+*.png

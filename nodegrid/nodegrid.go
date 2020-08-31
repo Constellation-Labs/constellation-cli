@@ -1,4 +1,4 @@
-package reporter
+package nodegrid
 
 import (
 	"constellation_cli/pkg/lb"
@@ -10,7 +10,7 @@ import (
 )
 
 type Nodegrid interface {
-	BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string)
+	BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string)(error, *NetworkStatus)
 }
 
 type nodegrid struct {}
@@ -149,8 +149,12 @@ func networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, 
 	result <- buildNetworkGrid(globalClusterInfo)
 }
 
+type NetworkStatus struct {
+	NodesList []NodeOverview
+	NodesGrid map[string]map[string]node.NodeInfo
+}
 
-func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string) {
+func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string) (error, *NetworkStatus) {
 
 	globalClusterInfo, err := lb.GetClient(url).GetClusterInfo()
 
@@ -184,8 +188,9 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 		if outputImage != ""  {
 			BuildImageOutput(outputImage, networkOverview, networkGrid, outputTheme)
 		}
+
+		return nil, &NetworkStatus{networkOverview, networkGrid}
 	} else {
-		println("error")
-		println(err.Error())
+		return err, nil
 	}
 }

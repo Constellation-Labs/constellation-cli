@@ -1,4 +1,4 @@
-package reporter
+package nodegrid
 
 import (
 	"constellation_cli/pkg/node"

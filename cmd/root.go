@@ -6,7 +6,7 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "constellation_cli",
+		Use:   "cl_cli",
 		Short: "Constellation Command Line Utility",
 	}
 )
