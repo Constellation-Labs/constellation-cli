@@ -28,5 +28,14 @@ You can switch image theme between transparent,dark and light.
 
 ![Image Light](nodegrid-image-output-light.png)
 
+## Nodemon
+
+Nodemon command utilizes Nodegrid capabilties to build the network status overview. When executed it notifies 
+Discord webhook on node status changes between other then Ready and SnapshotCreation states. The previous
+network state is stored by default in a $HOME directory in `network-status` file, webhook url is taken from $HOME 
+`webhook` file. Both paths can be overridden with commandline flags along with theme flag. 
+
+    nodemon http://lb.constellationnetwork.io:9000 --theme=dark
+    
 ### Roadmap
  - Code cleanup/rewrite for image/ascii output

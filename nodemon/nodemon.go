@@ -59,7 +59,7 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 		if strings.Compare(currentHash, oldHash) != 0{
 
 
-			fmt.Printf("Notify webook %s\n", webhookUrl)
+			fmt.Printf("Notify via webook\n")
 
 			imageFileBytes, _ := ioutil.ReadFile(imageFile)
 
