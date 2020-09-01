@@ -170,5 +170,5 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 		}
 	}
 
-	c.WriteFile(target, rasterizer.PNGWriter(5))
+	c.WriteFile(target, rasterizer.PNGWriter(2))
 }
