@@ -84,7 +84,21 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 		currentHash := fmt.Sprintf("%x", hashCalculator.Sum([]byte(obsString)))
 		oldHash := string(statusFileBytes)
 
-		if strings.Compare(currentHash, oldHash) != 0 || redownloadNodesSelfObservationCount > len(networkStatus.NodesList)/2 {
+		redownloadScale := 100 * float64(redownloadNodesSelfObservationCount) / float64(len(networkStatus.NodesList))
+
+		redownloadTriggerReached := redownloadScale > 50
+
+		if strings.Compare(currentHash, oldHash) != 0 || redownloadTriggerReached {
+
+			var message = ""
+
+			if redownloadTriggerReached {
+				message = fmt.Sprintf("According to results %.2f%% of the cluster is performing a redownload. \n", redownloadScale)
+			}
+
+			if len(offlineNodeMentions) > 0 {
+				message = message + fmt.Sprintf("Operators %s, we need you since your nodes are offline or marked as offline.", strings.Join(offlineNodeMentions, ", "))
+			}
 
 			fmt.Printf("Notify following operators %s via webhook\n", strings.Join(offlineNodeMentions, ", "))
 
@@ -92,7 +106,7 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 
 			var content = ""
 			if len(offlineNodeMentions) > 0 {
-				content = fmt.Sprintf("Operators %s, we need you since your nodes are offline.", strings.Join(offlineNodeMentions, ", "))
+				content = message
 			}
 
 			client := resty.New()
@@ -111,7 +125,7 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 
 			ioutil.WriteFile(statusFile, []byte(currentHash), 0660)
 		} else {
-			fmt.Printf("Network offline status unchanged and no need to notify\n")
+			fmt.Printf("Network offline status unchanged or redownload alert trigger not met %.2f%%\n", redownloadScale)
 		}
 
 		os.Remove(imageFile)
