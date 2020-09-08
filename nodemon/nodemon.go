@@ -58,7 +58,7 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 		}
 
 		for _, cell := range row {
-			if node.IsRedownloading(cell.Status) {
+			if node.IsOffline(cell.Status) {
 				offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s;%s", observer, cell.Id.Hex,cell.Status))
 				offlineNodesObservationCount++
 
