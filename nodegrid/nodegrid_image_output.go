@@ -63,7 +63,7 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 	textHeight := float64(12)
 	// textHeight := iconHeight
 
-	canvasWidth := math.Max(float64(iconWidth + iconMargin) * gridSize + 2*baseXMargin + 2*textWidth, 500)
+	canvasWidth := math.Max(float64(iconWidth + iconMargin) * gridSize + 2*baseXMargin + 2*textWidth, 550)
 
 	canvasHeight := float64(iconHeight + iconMargin) * gridSize + 2*baseYMargin + textHeight + (gridSize+2) * textHeight
 

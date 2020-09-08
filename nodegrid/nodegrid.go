@@ -3,6 +3,8 @@ package nodegrid
 import (
 	"constellation_cli/pkg/lb"
 	"constellation_cli/pkg/node"
+	"github.com/jszwec/csvutil"
+	"io/ioutil"
 	"sort"
 	"strings"
 	"sync"
@@ -10,13 +12,44 @@ import (
 )
 
 type Nodegrid interface {
-	BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string)(error, *NetworkStatus)
+	// Split this as it mixes two concerns
+	BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string, verbose bool)(error, *NetworkStatus)
+	Operators() map[string]Operator
 }
 
-type nodegrid struct {}
+type Operator struct {
+	HexId string `csv:"id"`
+	DiscordId string `csv:"discord"`
+	Name string `csv:"name"`
+}
 
-func NewNodegrid() Nodegrid {
-	return & nodegrid {}
+type nodegrid struct {
+	operatorsFilePath string
+	operators map[string]Operator
+	operatorsLoaded bool
+}
+
+func (n *nodegrid) Operators() map[string]Operator{
+
+	if !n.operatorsLoaded {
+		var operators []Operator
+
+		operatorsFileBytes, _ := ioutil.ReadFile(n.operatorsFilePath)
+
+		csvutil.Unmarshal(operatorsFileBytes, &operators)
+
+		for _, o := range operators {
+			n.operators[o.HexId] = o
+		}
+
+		n.operatorsLoaded = true
+	}
+
+	return n.operators
+}
+
+func NewNodegrid(operatorsFile string) Nodegrid {
+	return & nodegrid {operatorsFile, make(map[string]Operator), false}
 }
 
 type nodeResult struct {
@@ -54,7 +87,7 @@ func queryNodeForClusterInfoWorker(wg *sync.WaitGroup, cluster <-chan node.NodeA
 	}
 }
 
-func buildNetworkGrid(ci *node.ClusterInfo) map[string]map[string]node.NodeInfo{
+func (n *nodegrid) buildNetworkGrid(ci *node.ClusterInfo) map[string]map[string]node.NodeInfo{
 
 	const workers = 24
 
@@ -93,20 +126,29 @@ type NodeOverview struct {
 	info node.NodeInfo
 	metrics *node.Metrics
 	metricsResponseDuration time.Duration
+	operator *Operator
 }
 
-func buildNodeOverviewWorker(wg *sync.WaitGroup, nodes <-chan node.NodeInfo, result chan<- NodeOverview) {
+func (n *nodegrid) buildNodeOverviewWorker(wg *sync.WaitGroup, nodes <-chan node.NodeInfo, result chan<- NodeOverview) {
 	defer wg.Done()
 
 	for nodeInfo := range nodes {
+		var op *Operator = nil
+
+		o, e := n.Operators()[nodeInfo.Id.Hex]
+		if e {
+			op = &o
+		}
+
 		start := time.Now()
 		m, _ := node.GetClient(nodeInfo.Ip).GetNodeMetrics()
 		elapsed := time.Since(start)
-		result <- NodeOverview { nodeInfo, m, elapsed}
+
+		result <- NodeOverview { nodeInfo, m, elapsed, op}
 	}
 }
 
-func buildClusterOverview(globalClusterInfo *node.ClusterInfo) []NodeOverview {
+func (n *nodegrid) buildClusterOverview(globalClusterInfo *node.ClusterInfo) []NodeOverview {
 
 	const workers = 24
 
@@ -117,7 +159,7 @@ func buildClusterOverview(globalClusterInfo *node.ClusterInfo) []NodeOverview {
 
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
-		go buildNodeOverviewWorker(&wg, jobs, results)
+		go n.buildNodeOverviewWorker(&wg, jobs, results)
 	}
 
 	for _, nodeInfo := range *globalClusterInfo {
@@ -139,14 +181,14 @@ func buildClusterOverview(globalClusterInfo *node.ClusterInfo) []NodeOverview {
 	return clusterOverview
 }
 
-func networkOverviewWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- []NodeOverview ) {
+func (n *nodegrid) networkOverviewWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- []NodeOverview ) {
 	defer wg.Done()
-	result <- buildClusterOverview(globalClusterInfo)
+	result <- n.buildClusterOverview(globalClusterInfo)
 }
 
-func networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- map[string]map[string]node.NodeInfo ) {
+func (n *nodegrid) networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- map[string]map[string]node.NodeInfo ) {
 	defer wg.Done()
-	result <- buildNetworkGrid(globalClusterInfo)
+	result <- n.buildNetworkGrid(globalClusterInfo)
 }
 
 type NetworkStatus struct {
@@ -154,7 +196,7 @@ type NetworkStatus struct {
 	NodesGrid map[string]map[string]node.NodeInfo
 }
 
-func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string) (error, *NetworkStatus) {
+func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus) {
 
 	globalClusterInfo, err := lb.GetClient(url).GetClusterInfo()
 
@@ -162,13 +204,15 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 
 		var wg sync.WaitGroup
 
+		n.Operators()
+
 		nodeResults := make(chan []NodeOverview, 1)
 		gridResults := make(chan map[string]map[string]node.NodeInfo, 1)
 
 		wg.Add(2)
 
-		go networkOverviewWorker(&wg, globalClusterInfo, nodeResults)
-		go networkGridWorker(&wg, globalClusterInfo, gridResults)
+		go n.networkOverviewWorker(&wg, globalClusterInfo, nodeResults)
+		go n.networkGridWorker(&wg, globalClusterInfo, gridResults)
 
 		wg.Wait()
 
@@ -182,7 +226,7 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 		})
 
 		if silent == false {
-			PrintAsciiOutput(networkOverview, networkGrid)
+			PrintAsciiOutput(networkOverview, networkGrid, verbose)
 		}
 
 		if outputImage != ""  {

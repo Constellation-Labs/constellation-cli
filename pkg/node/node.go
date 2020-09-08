@@ -19,6 +19,14 @@ const (
 
 var	ValidStatuses = [...]NodeStatus{PendingDownload, ReadyForDownload, DownloadInProgress, DownloadCompleteAwaitingFinalSync, SnapshotCreation, Ready, Leaving, Offline}
 
+func IsRedownloading(status NodeStatus) bool {
+	return status == PendingDownload || status == ReadyForDownload || status == DownloadInProgress || status == DownloadCompleteAwaitingFinalSync
+}
+
+func IsOffline(status NodeStatus) bool {
+	return status == Leaving || status == Offline
+}
+
 // TODO: replace with hashmap?
 func asNodeStatus(in string) *NodeStatus {
 	for _, name := range ValidStatuses {

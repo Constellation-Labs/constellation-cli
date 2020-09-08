@@ -76,11 +76,24 @@ func fmtLatency(d time.Duration) string{
 	return fmt.Sprintf("%d[ms]", d.Milliseconds())
 }
 
-func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string]node.NodeInfo) {
+func operatorName(ni NodeOverview) string {
+	if ni.operator != nil {
+		return fmt.Sprintf("%s <%s>", ni.operator.Name, ni.operator.DiscordId)
+	}
+
+	return ""
+}
+
+func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string]node.NodeInfo, verbose bool) {
 
 	fmt.Printf("Constellation Hypergraph Network nodes [%d], majority status\n", len(clusterOverview))
 
-	fmt.Printf("\u001B[1;35m##  %-20s %-21s %-10s %-10s %-10s %s\u001B[0m\n", "Alias", "Address", "Version", "Snapshot", "Latency", "Status Lb/Node")
+	if verbose {
+		fmt.Printf("\u001B[1;35m##  %-129s %-20s %-40s %-21s %-10s %-10s %-10s %s\u001B[0m\n", "Id", "Alias", "Operator", "Address", "Version", "Snapshot", "Latency", "Status Lb/Node")
+	} else {
+		fmt.Printf("\u001B[1;35m##  %-20s %-21s %-10s %-10s %-10s %s\u001B[0m\n", "Alias", "Address", "Version", "Snapshot", "Latency", "Status Lb/Node")
+	}
+
 	for i, nodeOverview := range clusterOverview {
 		var version = "?"
 		var snap = "?"
@@ -92,13 +105,29 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 			latency = fmtLatency(nodeOverview.metricsResponseDuration)
 		}
 
-		fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-20s %-21s %-10s %-10s %-10s %s%s\n", i, nodeOverview.info.Alias,
-			fmt.Sprintf("%s:%d", nodeOverview.info.Ip.Host, nodeOverview.info.Ip.Port),
-			version,
-			snap,
-			latency,
-			fmt.Sprintf(statusColorFmt(nodeOverview.info.Status), nodeOverview.info.Status),
-			printableNodeStatus(nodeOverview.metrics))
+		if verbose {
+			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-129s %-20s %-40s %-21s %-10s %-10s %-10s %s%s\n",
+				i,
+				nodeOverview.info.Id.Hex,
+				nodeOverview.info.Alias,
+				operatorName(nodeOverview),
+				fmt.Sprintf("%s:%d", nodeOverview.info.Ip.Host, nodeOverview.info.Ip.Port),
+				version,
+				snap,
+				latency,
+				fmt.Sprintf(statusColorFmt(nodeOverview.info.Status), nodeOverview.info.Status),
+				printableNodeStatus(nodeOverview.metrics))
+		} else {
+			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-20s %-21s %-10s %-10s %-10s %s%s\n",
+				i,
+				nodeOverview.info.Alias,
+				fmt.Sprintf("%s:%d", nodeOverview.info.Ip.Host, nodeOverview.info.Ip.Port),
+				version,
+				snap,
+				latency,
+				fmt.Sprintf(statusColorFmt(nodeOverview.info.Status), nodeOverview.info.Status),
+				printableNodeStatus(nodeOverview.metrics))
+		}
 	}
 
 	fmt.Println()
