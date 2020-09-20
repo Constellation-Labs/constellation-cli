@@ -56,6 +56,7 @@ type nodeResult struct {
 	host string
 	err error
 	info *node.ClusterInfo
+	latency time.Duration
 }
 
 func nodeInfoMap(info node.ClusterInfo) map[string]node.NodeInfo{
@@ -69,12 +70,15 @@ func nodeInfoMap(info node.ClusterInfo) map[string]node.NodeInfo{
 }
 
 func clusterInfo(addr node.NodeAddr) nodeResult {
+	start := time.Now()
 	ci, e := node.GetClient(addr).GetClusterInfo()
+	duration := time.Since(start)
 
 	return nodeResult {
 		 addr.Host,
 		  e,
 		  ci,
+		duration,
 	}
 }
 
@@ -87,7 +91,7 @@ func queryNodeForClusterInfoWorker(wg *sync.WaitGroup, cluster <-chan node.NodeA
 	}
 }
 
-func (n *nodegrid) buildNetworkGrid(ci *node.ClusterInfo) map[string]map[string]node.NodeInfo{
+func (n *nodegrid) buildNetworkGrid(ci *node.ClusterInfo) networkGrid{
 
 	const workers = 24
 
@@ -112,21 +116,25 @@ func (n *nodegrid) buildNetworkGrid(ci *node.ClusterInfo) map[string]map[string]
 	close(results)
 
 	clusterGrid := make(map[string]map[string]node.NodeInfo)
+	nodeLatency := make(map[string]time.Duration)
 
 	for cir := range results {
+		nodeLatency[cir.host] = time.Since(time.Unix(0,0))
+
 		if cir.err == nil {
 			clusterGrid[cir.host] = nodeInfoMap(*cir.info)
+			nodeLatency[cir.host] = cir.latency
 		}
 	}
 
-	return clusterGrid
+	return networkGrid {clusterGrid, nodeLatency }
 }
 
 type NodeOverview struct {
-	info node.NodeInfo
-	metrics *node.Metrics
-	metricsResponseDuration time.Duration
-	operator *Operator
+	Info                node.NodeInfo
+	Metrics             *node.Metrics
+	AvgResponseDuration time.Duration
+	Operator            *Operator
 }
 
 func (n *nodegrid) buildNodeOverviewWorker(wg *sync.WaitGroup, nodes <-chan node.NodeInfo, result chan<- NodeOverview) {
@@ -186,7 +194,12 @@ func (n *nodegrid) networkOverviewWorker(wg *sync.WaitGroup, globalClusterInfo *
 	result <- n.buildClusterOverview(globalClusterInfo)
 }
 
-func (n *nodegrid) networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- map[string]map[string]node.NodeInfo ) {
+type networkGrid struct {
+	grid map[string]map[string]node.NodeInfo
+	latency map[string]time.Duration
+}
+
+func (n *nodegrid) networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- networkGrid ) {
 	defer wg.Done()
 	result <- n.buildNetworkGrid(globalClusterInfo)
 }
@@ -207,7 +220,7 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 		n.Operators()
 
 		nodeResults := make(chan []NodeOverview, 1)
-		gridResults := make(chan map[string]map[string]node.NodeInfo, 1)
+		gridResults := make(chan networkGrid, 1)
 
 		wg.Add(2)
 
@@ -221,20 +234,26 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 
 		networkOverview, networkGrid := <-nodeResults, <-gridResults
 
+		for _, n := range networkOverview {
+			n.AvgResponseDuration = (n.AvgResponseDuration + networkGrid.latency[n.Info.Ip.Host])/2
+		}
+
 		sort.Slice(networkOverview, func(i, j int) bool {
-			return strings.ToLower(networkOverview[i].info.Alias) < strings.ToLower(networkOverview[j].info.Alias)
+			return strings.ToLower(networkOverview[i].Info.Alias) < strings.ToLower(networkOverview[j].Info.Alias)
 		})
 
 		if silent == false {
-			PrintAsciiOutput(networkOverview, networkGrid, verbose)
+			PrintAsciiOutput(networkOverview, networkGrid.grid, verbose)
 		}
 
 		if outputImage != ""  {
-			BuildImageOutput(outputImage, networkOverview, networkGrid, outputTheme)
+			BuildImageOutput(outputImage, networkOverview, networkGrid.grid, outputTheme)
 		}
 
-		return nil, &NetworkStatus{networkOverview, networkGrid}
+		return nil, &NetworkStatus{networkOverview, networkGrid.grid}
 	} else {
 		return err, nil
 	}
 }
+
+const LatencyTriggerMilliseconds = 1000

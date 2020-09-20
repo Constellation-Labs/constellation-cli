@@ -67,7 +67,7 @@ func printableNodeStatus(metrics *node.Metrics) string {
 	return fmt.Sprintf("/"+statusColorFmt(metrics.NodeState), metrics.NodeState)
 }
 
-func fmtLatency(d time.Duration) string{
+func fmtLatency(d time.Duration) string {
 
 	if d.Seconds() >= 1 {
 		return fmt.Sprintf("%.3f[s]", d.Seconds())
@@ -76,9 +76,21 @@ func fmtLatency(d time.Duration) string{
 	return fmt.Sprintf("%d[ms]", d.Milliseconds())
 }
 
+func fmtLatencyAscii(d time.Duration) string {
+	var lat = fmtLatency(d)
+
+	if d.Milliseconds() >= LatencyTriggerMilliseconds {
+		lat = fmt.Sprintf("\033[1;33m%-10s\033[0m", lat)
+	} else {
+		lat = fmt.Sprintf("\033[0;37m%-10s\033[0m", lat)
+	}
+
+	return lat
+}
+
 func operatorName(ni NodeOverview) string {
-	if ni.operator != nil {
-		return fmt.Sprintf("%s <%s>", ni.operator.Name, ni.operator.DiscordId)
+	if ni.Operator != nil {
+		return fmt.Sprintf("%s <%s>", ni.Operator.Name, ni.Operator.DiscordId)
 	}
 
 	return ""
@@ -99,34 +111,34 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 		var snap = "?"
 		var latency = "♾"
 
-		if nodeOverview.metrics != nil {
-			version = nodeOverview.metrics.Version
-			snap = nodeOverview.metrics.LastSnapshotHeight
-			latency = fmtLatency(nodeOverview.metricsResponseDuration)
+		if nodeOverview.Metrics != nil {
+			version = nodeOverview.Metrics.Version
+			snap = nodeOverview.Metrics.LastSnapshotHeight
+			latency = fmtLatencyAscii(nodeOverview.AvgResponseDuration)
 		}
 
 		if verbose {
 			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-129s %-20s %-40s %-21s %-10s %-10s %-10s %s%s\n",
 				i,
-				nodeOverview.info.Id.Hex,
-				nodeOverview.info.Alias,
+				nodeOverview.Info.Id.Hex,
+				nodeOverview.Info.Alias,
 				operatorName(nodeOverview),
-				fmt.Sprintf("%s:%d", nodeOverview.info.Ip.Host, nodeOverview.info.Ip.Port),
+				fmt.Sprintf("%s:%d", nodeOverview.Info.Ip.Host, nodeOverview.Info.Ip.Port),
 				version,
 				snap,
 				latency,
-				fmt.Sprintf(statusColorFmt(nodeOverview.info.Status), nodeOverview.info.Status),
-				printableNodeStatus(nodeOverview.metrics))
+				fmt.Sprintf(statusColorFmt(nodeOverview.Info.Status), nodeOverview.Info.Status),
+				printableNodeStatus(nodeOverview.Metrics))
 		} else {
 			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-20s %-21s %-10s %-10s %-10s %s%s\n",
 				i,
-				nodeOverview.info.Alias,
-				fmt.Sprintf("%s:%d", nodeOverview.info.Ip.Host, nodeOverview.info.Ip.Port),
+				nodeOverview.Info.Alias,
+				fmt.Sprintf("%s:%d", nodeOverview.Info.Ip.Host, nodeOverview.Info.Ip.Port),
 				version,
 				snap,
 				latency,
-				fmt.Sprintf(statusColorFmt(nodeOverview.info.Status), nodeOverview.info.Status),
-				printableNodeStatus(nodeOverview.metrics))
+				fmt.Sprintf(statusColorFmt(nodeOverview.Info.Status), nodeOverview.Info.Status),
+				printableNodeStatus(nodeOverview.Metrics))
 		}
 	}
 
@@ -156,10 +168,10 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 	for i, rowNode := range clusterOverview {
 		fmt.Printf("%02d", i)
 
-		rowMap := grid[rowNode.info.Ip.Host]
+		rowMap := grid[rowNode.Info.Ip.Host]
 
 		for _, colNode := range clusterOverview {
-			cell := rowMap[colNode.info.Ip.Host]
+			cell := rowMap[colNode.Info.Ip.Host]
 			fmt.Printf(" %s", symbol(cell.Status))
 		}
 

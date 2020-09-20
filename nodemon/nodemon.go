@@ -40,14 +40,32 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 
 	imageFile := fmt.Sprintf("%s/nodemon", os.TempDir())
 
+	fmt.Println("Gathering and building cluster status")
+
 	err, networkStatus := ng.BuildNetworkStatus(url, true, imageFile, outputTheme, false)
 
 	var offlineObservations []string
 
 	offlineNodeOperators := make(map[nodegrid.Operator]bool)
+	offlineNodes := make(map[string]bool)
 
 	var offlineNodesObservationCount = 0
 	var redownloadNodesSelfObservationCount = 0
+	var slowNodes []string
+	var slowNodesOperators []nodegrid.Operator
+
+	fmt.Println("Verifying slow nodes")
+
+	for _, n := range networkStatus.NodesList {
+		if n.AvgResponseDuration.Milliseconds() > nodegrid.LatencyTriggerMilliseconds {
+			slowNodes = append(slowNodes, n.Info.Id.Hex)
+			if op, v := nodeOps[n.Info.Id.Hex]; v{
+				slowNodesOperators = append(slowNodesOperators, op)
+			}
+		}
+	}
+
+	fmt.Println("Reviewing offline nodes and redownloads")
 
 	for observer, row := range networkStatus.NodesGrid {
 
@@ -59,8 +77,9 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 
 		for _, cell := range row {
 			if node.IsOffline(cell.Status) {
-				offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s;%s", observer, cell.Id.Hex,cell.Status))
+				offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s:%s", observer, cell.Id.Hex,cell.Status))
 				offlineNodesObservationCount++
+				offlineNodes[cell.Id.Hex] = true
 
 				if op, v := nodeOps[cell.Id.Hex]; v{
 					offlineNodeOperators[op] = true
@@ -70,11 +89,16 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 	}
 
 	offlineNodeMentions := make([]string, 0, len(offlineNodeOperators))
+	slowNodeMentions := make([]string, 0, len(slowNodesOperators))
 
 	for op, _ := range offlineNodeOperators {
-
-		fmt.Printf("Notify %s - %s\n", op.DiscordId, op.Name)
+		fmt.Printf("Notifyabout offline nodes %s - %s\n", op.DiscordId, op.Name)
 		offlineNodeMentions = append(offlineNodeMentions, fmt.Sprintf("<@%s>", op.DiscordId))
+	}
+
+	for _, op := range slowNodesOperators {
+		fmt.Printf("Notify about slow nodes %s - %s\n", op.DiscordId, op.Name)
+		slowNodeMentions = append(slowNodeMentions, fmt.Sprintf("<@%s>", op.DiscordId))
 	}
 
 	if err == nil {
@@ -88,32 +112,40 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 
 		redownloadTriggerReached := redownloadScale > 50
 
-		if strings.Compare(currentHash, oldHash) != 0 || redownloadTriggerReached {
+		// nodegrid.PrintAsciiOutput(networkStatus.NodesList, networkStatus.NodesGrid, true)
 
-			var message = ""
+		if strings.Compare(currentHash, oldHash) != 0 || redownloadTriggerReached || len(slowNodes) > 0 {
+
+			var message = fmt.Sprintf("Cluster is total nodes=%d offline/partially offline nodes=%d offline observations=%d redownload=%d highLatency=%d\n",
+				len(networkStatus.NodesList),
+				len(offlineNodes),
+				offlineNodesObservationCount,
+				redownloadNodesSelfObservationCount,
+				len(slowNodes))
 
 			if redownloadTriggerReached {
-				message = fmt.Sprintf("According to results %.2f%% of the cluster is performing a redownload. \n", redownloadScale)
+				message = message + fmt.Sprintf("According to results %.2f%% of the cluster is performing a redownload. \n", redownloadScale)
 			}
 
 			if len(offlineNodeMentions) > 0 {
-				message = message + fmt.Sprintf("Operators %s, we need you since your nodes are offline or marked as offline.", strings.Join(offlineNodeMentions, ", "))
+				message = message + fmt.Sprintf("%s - your nodes are offline or not fully reachable.", strings.Join(offlineNodeMentions, ", "))
 			}
 
-			fmt.Printf("Notify following operators %s via webhook\n", strings.Join(offlineNodeMentions, ", "))
+			if len(slowNodeMentions) > 0 {
+				message = message + fmt.Sprintf("%s - nodegrid recorded a high network latency for your node.", strings.Join(offlineNodeMentions, ", "))
+			}
+
+			fmt.Printf("Notify following operators %s, %s via webhook\n", strings.Join(offlineNodeMentions, ", "),
+				strings.Join(slowNodeMentions, ", "))
 
 			imageFileBytes, _ := ioutil.ReadFile(imageFile)
 
-			var content = ""
-			if len(offlineNodeMentions) > 0 {
-				content = message
-			}
-
-			client := resty.New()
+ 			client := resty.New()
 
 			r, e := client.R().
 				SetFormData(map[string]string{
-					"content": content,
+					"username": "Nodegrid",
+					"content": message,
 				}).
 				SetFileReader("file", "nodegrid.png", bytes.NewReader(imageFileBytes)).Post(webhookUrl)
 
@@ -121,12 +153,11 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 				fmt.Printf("Cannot execute webhook notification, error=%s\n", e)
 			} else {
 				fmt.Printf("Webhook returned %d\n", r.StatusCode())
+				ioutil.WriteFile(statusFile, []byte(currentHash), 0660)
 			}
-
-			ioutil.WriteFile(statusFile, []byte(currentHash), 0660)
-		} else {
-			fmt.Printf("Network offline status unchanged or redownload alert trigger not met %.2f%%\n", redownloadScale)
 		}
+		fmt.Printf("Network size=%d offline/partially offline nodes=%d offline observations=%d status unchanged or redownload alert trigger not met %.2f%%\nOffline summary:\n%s\nSlow nodes:\n%s\n",
+			len(networkStatus.NodesList), len(offlineNodes), offlineNodesObservationCount, redownloadScale, strings.Join(offlineNodeMentions, "\n"), strings.Join(slowNodes, "\n"))
 
 		os.Remove(imageFile)
 	}
