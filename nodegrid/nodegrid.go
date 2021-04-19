@@ -119,7 +119,7 @@ func (n *nodegrid) buildNetworkGrid(ci *node.ClusterInfo) networkGrid{
 	nodeLatency := make(map[string]time.Duration)
 
 	for cir := range results {
-		nodeLatency[cir.host] = time.Since(time.Unix(0,0))
+		nodeLatency[cir.host] = time.Second * 30
 
 		if cir.err == nil {
 			clusterGrid[cir.host] = nodeInfoMap(*cir.info)
@@ -256,4 +256,4 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 	}
 }
 
-const LatencyTriggerMilliseconds = 1000
+const LatencyTriggerMilliseconds = 2000

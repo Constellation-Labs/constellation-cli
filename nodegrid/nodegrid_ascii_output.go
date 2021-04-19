@@ -11,6 +11,7 @@ const (
 	WarningColor = "\033[1;33m%s\033[0m"
 	OfflineColor = "\033[1;31m%s\033[0m"
 	WorkingColor = "\033[1;36m%s\033[0m"
+	UnknownColor = "\033[1;37m%s\033[0m"
 )
 
 func statusColorFmt(status node.NodeStatus) string {
@@ -25,12 +26,14 @@ func statusColorFmt(status node.NodeStatus) string {
 		return WarningColor
 	case node.Leaving:
 		return OfflineColor
+	case node.Offline:
+		return OfflineColor
 	case node.SnapshotCreation:
 		return WorkingColor
 	case node.Ready:
 		return OperationalColor
 	default:
-		return OfflineColor
+		return UnknownColor
 	}
 }
 
@@ -50,8 +53,10 @@ func statusSymbol(status node.NodeStatus) string {
 		return `==`
 	case node.SnapshotCreation:
 		return `■■`
-	default:
+	case node.Offline:
 		return `--`
+	default:
+		return `~~`
 	}
 }
 

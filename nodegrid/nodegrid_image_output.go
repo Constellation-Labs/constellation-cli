@@ -26,8 +26,10 @@ func statusColorRGB(status node.NodeStatus) color.RGBA {
 		return color.RGBA{R: 78, G: 191, B: 189, A: 255}
 	case node.Ready:
 		return color.RGBA{R: 98, G: 191, B: 67, A: 255}
-	default:
+	case node.Offline:
 		return color.RGBA{R: 230, G: 78, B: 18, A: 255}
+	default:
+		return color.RGBA{R: 153, G: 102, B: 102, A: 255}
 	}
 }
 
@@ -35,6 +37,7 @@ func nodeStatusString(metrics *node.Metrics) string {
 	if metrics == nil {
 		return "Offline"
 	}
+
 	return fmt.Sprintf("%s", metrics.NodeState)
 }
 
@@ -124,7 +127,7 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 		var snap = "?"
 		var latency = "?"
 		statusTextFace1 :=  statusColorRGB(nodeOverview.Info.Status)
-		var statusTextFace2 = statusTextFace1
+		var statusTextFace2 = statusColorRGB(node.Offline)
 		var latencyColor = textColor
 
 		if nodeOverview.Metrics != nil {
@@ -154,6 +157,7 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 
 		ctx.DrawText(statusLbOffsetX, textPosY, canvas.NewTextBox(fontFamily.Face(20.0,statusTextFace1, canvas.FontRegular, canvas.FontNormal),  fmt.Sprintf("%s", nodeOverview.Info.Status), 0.0, 0.0, canvas.Right, canvas.Top, 0.0, 0.0))
 		ctx.DrawText(statusSeparatorOffsetX, textPosY, canvas.NewTextBox(textFace,  "/", 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
+
 		ctx.DrawText(statusLocalOffsetX, textPosY, canvas.NewTextBox(fontFamily.Face(20.0, statusTextFace2, canvas.FontRegular, canvas.FontNormal),  nodeStatusString(nodeOverview.Metrics), 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 	}
 

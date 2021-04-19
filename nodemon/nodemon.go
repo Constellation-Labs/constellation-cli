@@ -10,7 +10,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sort"
 	"strings"
+	"time"
 )
 
 type Nodemon interface {
@@ -57,10 +59,22 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 	fmt.Println("Verifying slow nodes")
 
 	for _, n := range networkStatus.NodesList {
-		if n.AvgResponseDuration.Milliseconds() > nodegrid.LatencyTriggerMilliseconds {
+		if n.AvgResponseDuration.Milliseconds() > nodegrid.LatencyTriggerMilliseconds &&
+			n.AvgResponseDuration <= 29 * time.Second {
+
 			slowNodes = append(slowNodes, n.Info.Id.Hex)
 			if op, v := nodeOps[n.Info.Id.Hex]; v{
 				slowNodesOperators = append(slowNodesOperators, op)
+			}
+		}
+
+		if n.AvgResponseDuration > 29 * time.Second {
+			offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s:%s", "Nodegrid", n.Info.Id.Hex,n.Info.Status))
+			offlineNodesObservationCount++
+			offlineNodes[n.Info.Id.Hex] = true
+
+			if op, v := nodeOps[n.Info.Id.Hex]; v{
+				offlineNodeOperators[op] = true
 			}
 		}
 	}
@@ -103,9 +117,11 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 
 	if err == nil {
 		hashCalculator := sha256.New()
-		obsString:= strings.Join(offlineObservations, "\n")
+		sort.Strings(offlineObservations)
 
+		obsString:= strings.Join(offlineObservations, "\n")
 		currentHash := fmt.Sprintf("%x", hashCalculator.Sum([]byte(obsString)))
+
 		oldHash := string(statusFileBytes)
 
 		redownloadScale := 100 * float64(redownloadNodesSelfObservationCount) / float64(len(networkStatus.NodesList))
@@ -115,6 +131,10 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 		// nodegrid.PrintAsciiOutput(networkStatus.NodesList, networkStatus.NodesGrid, true)
 
 		if strings.Compare(currentHash, oldHash) != 0 || redownloadTriggerReached || len(slowNodes) > 0 {
+
+			if (strings.Compare(currentHash, oldHash) != 0) {
+				fmt.Println("Network status hash is different")
+			}
 
 			var message = fmt.Sprintf("Cluster is total nodes=%d offline/partially offline nodes=%d offline observations=%d redownload=%d highLatency=%d\n",
 				len(networkStatus.NodesList),
@@ -132,7 +152,7 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 			}
 
 			if len(slowNodeMentions) > 0 {
-				message = message + fmt.Sprintf("%s - nodegrid recorded a high network latency for your node.", strings.Join(offlineNodeMentions, ", "))
+				message = message + fmt.Sprintf("%s - nodegrid recorded a high network latency for your node.", strings.Join(slowNodeMentions, ", "))
 			}
 
 			fmt.Printf("Notify following operators %s, %s via webhook\n", strings.Join(offlineNodeMentions, ", "),
