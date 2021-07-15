@@ -1,8 +1,8 @@
 package nodegrid
 
 import (
-	"constellation_cli/pkg/lb"
-	"constellation_cli/pkg/node"
+	"constellation/pkg/lb"
+	"constellation/pkg/node"
 	"github.com/jszwec/csvutil"
 	"io/ioutil"
 	"sort"
@@ -29,7 +29,7 @@ type nodegrid struct {
 	operatorsLoaded bool
 }
 
-func (n *nodegrid) Operators() map[string]Operator{
+func (n *nodegrid) Operators() map[string]Operator {
 
 	if !n.operatorsLoaded {
 		var operators []Operator
@@ -49,7 +49,7 @@ func (n *nodegrid) Operators() map[string]Operator{
 }
 
 func NewNodegrid(operatorsFile string) Nodegrid {
-	return & nodegrid {operatorsFile, make(map[string]Operator), false}
+	return & nodegrid{operatorsFile, make(map[string]Operator), false}
 }
 
 type nodeResult struct {
@@ -74,7 +74,7 @@ func clusterInfo(addr node.NodeAddr) nodeResult {
 	ci, e := node.GetClient(addr).GetClusterInfo()
 	duration := time.Since(start)
 
-	return nodeResult {
+	return nodeResult{
 		 addr.Host,
 		  e,
 		  ci,
@@ -91,7 +91,7 @@ func queryNodeForClusterInfoWorker(wg *sync.WaitGroup, cluster <-chan node.NodeA
 	}
 }
 
-func (n *nodegrid) buildNetworkGrid(ci *node.ClusterInfo) networkGrid{
+func (n *nodegrid) buildNetworkGrid(ci *node.ClusterInfo) networkGrid {
 
 	const workers = 24
 
@@ -127,7 +127,7 @@ func (n *nodegrid) buildNetworkGrid(ci *node.ClusterInfo) networkGrid{
 		}
 	}
 
-	return networkGrid {clusterGrid, nodeLatency }
+	return networkGrid{clusterGrid, nodeLatency }
 }
 
 type NodeOverview struct {
@@ -152,7 +152,7 @@ func (n *nodegrid) buildNodeOverviewWorker(wg *sync.WaitGroup, nodes <-chan node
 		m, _ := node.GetClient(nodeInfo.Ip).GetNodeMetrics()
 		elapsed := time.Since(start)
 
-		result <- NodeOverview { nodeInfo, m, elapsed, op}
+		result <- NodeOverview{nodeInfo, m, elapsed, op}
 	}
 }
 
@@ -189,7 +189,7 @@ func (n *nodegrid) buildClusterOverview(globalClusterInfo *node.ClusterInfo) []N
 	return clusterOverview
 }
 
-func (n *nodegrid) networkOverviewWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- []NodeOverview ) {
+func (n *nodegrid) networkOverviewWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- []NodeOverview) {
 	defer wg.Done()
 	result <- n.buildClusterOverview(globalClusterInfo)
 }
@@ -199,7 +199,7 @@ type networkGrid struct {
 	latency map[string]time.Duration
 }
 
-func (n *nodegrid) networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- networkGrid ) {
+func (n *nodegrid) networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- networkGrid) {
 	defer wg.Done()
 	result <- n.buildNetworkGrid(globalClusterInfo)
 }

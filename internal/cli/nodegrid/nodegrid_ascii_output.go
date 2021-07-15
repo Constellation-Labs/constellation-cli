@@ -1,7 +1,7 @@
 package nodegrid
 
 import (
-	"constellation_cli/pkg/node"
+	"constellation/pkg/node"
 	"fmt"
 	"time"
 )

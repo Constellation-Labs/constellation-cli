@@ -1,7 +1,7 @@
 package lb
 
 import (
-	"constellation_cli/pkg/node"
+	"constellation/pkg/node"
 	"encoding/json"
 	"io/ioutil"
 	"log"

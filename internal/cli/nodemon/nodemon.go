@@ -2,8 +2,8 @@ package nodemon
 
 import (
 	"bytes"
-	"constellation_cli/nodegrid"
-	"constellation_cli/pkg/node"
+	nodegrid2 "constellation/internal/cli/nodegrid"
+	"constellation/pkg/node"
 	"crypto/sha256"
 	"fmt"
 	"github.com/go-resty/resty/v2"
@@ -22,17 +22,17 @@ type Nodemon interface {
 type nodemon struct {}
 
 func NewNodemon() Nodemon {
-	return & nodemon {}
+	return & nodemon{}
 }
 
-func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile string, outputTheme string, operatorsFile string) {
+func (*nodemon) ExecuteNodesCheck(url string, configFile string, statusFile string, outputTheme string, operatorsFile string) {
 	configFileBytes, err := ioutil.ReadFile(configFile)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	ng := nodegrid.NewNodegrid(operatorsFile)
+	ng := nodegrid2.NewNodegrid(operatorsFile)
 
  	nodeOps := ng.Operators()
 
@@ -48,18 +48,18 @@ func (* nodemon) ExecuteNodesCheck(url string, configFile string, statusFile str
 
 	var offlineObservations []string
 
-	offlineNodeOperators := make(map[nodegrid.Operator]bool)
+	offlineNodeOperators := make(map[nodegrid2.Operator]bool)
 	offlineNodes := make(map[string]bool)
 
 	var offlineNodesObservationCount = 0
 	var redownloadNodesSelfObservationCount = 0
 	var slowNodes []string
-	var slowNodesOperators []nodegrid.Operator
+	var slowNodesOperators []nodegrid2.Operator
 
 	fmt.Println("Verifying slow nodes")
 
 	for _, n := range networkStatus.NodesList {
-		if n.AvgResponseDuration.Milliseconds() > nodegrid.LatencyTriggerMilliseconds &&
+		if n.AvgResponseDuration.Milliseconds() > nodegrid2.LatencyTriggerMilliseconds &&
 			n.AvgResponseDuration <= 29 * time.Second {
 
 			slowNodes = append(slowNodes, n.Info.Id.Hex)

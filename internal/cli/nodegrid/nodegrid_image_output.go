@@ -1,7 +1,7 @@
 package nodegrid
 
 import (
-	"constellation_cli/pkg/node"
+	"constellation/pkg/node"
 	"fmt"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/rasterizer"
@@ -136,7 +136,7 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 			latency = fmtLatency(nodeOverview.AvgResponseDuration)
 			statusTextFace2 = statusColorRGB(nodeOverview.Metrics.NodeState)
 
-			if nodeOverview.AvgResponseDuration.Milliseconds() >= LatencyTriggerMilliseconds  {
+			if nodeOverview.AvgResponseDuration.Milliseconds() >= LatencyTriggerMilliseconds {
 				latencyColor = alertColor
 			}
 		}

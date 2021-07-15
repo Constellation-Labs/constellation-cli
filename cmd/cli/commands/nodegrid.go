@@ -1,7 +1,7 @@
-package cmd
+package commands
 
 import (
-	nodegrid "constellation_cli/nodegrid"
+	nodegrid2 "constellation/internal/cli/nodegrid"
 	"fmt"
 	"github.com/spf13/cobra"
 	"os"
@@ -27,7 +27,7 @@ func executeNodegrid(cmd *cobra.Command, args []string) {
 	verbose, _ := cmd.Flags().GetBool("verbose")
 	operatorsFile, _ := cmd.Flags().GetString("operators")
 
-	ng := nodegrid.NewNodegrid(operatorsFile)
+	ng := nodegrid2.NewNodegrid(operatorsFile)
 
 	ng.BuildNetworkStatus(url, silent, outputImage, outputTheme, verbose)
 }
