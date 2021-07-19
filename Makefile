@@ -7,8 +7,10 @@ BINARY_NAME=cl_cli
 
 all: test build
 build:
-		$(GOBUILD) -o constellation-updater -v ./cmd/updater
-		$(GOBUILD) -o constellation-cli -v ./cmd/cli
+		echo "Building updater"
+		$(GOBUILD) -a -v -o constellation-updater ./cmd/updater
+		echo "Building cli tool"
+		$(GOBUILD) -a -v -o constellation-cli ./cmd/cli
 test:
 		$(GOTEST) -v ./...
 clean:
