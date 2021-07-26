@@ -1,6 +1,7 @@
-package self
 // +build !windows
 
-const binaryFilename = "cl_update"
-const checksumFilename = "cl_update.checksum"
-const binaryPath = "/usr/local/bin/" + binaryFilename
+package self
+
+const BinaryFilename = "cl_update"
+const ChecksumFilename = "cl_update.checksum"
+const BinaryPath = "/usr/local/bin/" + BinaryFilename

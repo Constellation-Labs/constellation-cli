@@ -2,39 +2,39 @@ package updater
 
 import (
 	"bytes"
-	"constellation/internal/updater/cli"
 	"errors"
 	"fmt"
 	"os"
 	"runtime"
 )
 
-// linux/386/1.0/cl_cli
-//const RepositoryUrlPattern = "https://example.com/%s/%s/%s/%s"
-//const ChecksumSize = 1
-//const BinaryFileChmod = 0755
+//TODO: FIX this size according to the checksum impl
+const ChecksumSize = 1
 
 type Upgrade struct {
 	TargetVersion string
 	RepositoryUrlPattern string
-	ChecksumSize int
-	BinaryFileChmod os.FileMode
+	BinaryFileChmod os.FileMode // FIXME: do we need this?
+	BinaryFilename string
+	ChecksumFilename string
+	BinaryPath string
 }
 
-// func (n *node) GetNodeMetrics() (*Metrics, error) {
 func (c Upgrade) binaryFileUrl(version string) string {
-	return fmt.Sprintf(c.RepositoryUrlPattern, runtime.GOOS, runtime.GOARCH, version, cli.binaryFilename)
+	return fmt.Sprintf(c.RepositoryUrlPattern, runtime.GOOS, runtime.GOARCH, version, c.BinaryFilename)
 }
 
 func (c Upgrade) checksumFileUrl(version string) string {
-	return fmt.Sprintf(c.RepositoryUrlPattern, runtime.GOOS, runtime.GOARCH, version, cli.checksumFilename)
+	return fmt.Sprintf(c.RepositoryUrlPattern, runtime.GOOS, runtime.GOARCH, version, c.ChecksumFilename)
 }
 
 func (c Upgrade) calculateChecksum(file *os.File) []byte {
-	return make([]byte, c.ChecksumSize)
+	return make([]byte, ChecksumSize)
 }
 
 func (c Upgrade) Run() error {
+	// FIXME: Verify current privileges for the executable? It does not bring much value though since someone might have tampered it alraedy
+
 	// download binary file
 	berr, upgradeFile := DownloadFile(c.binaryFileUrl(c.TargetVersion))
 	cerr, checksumFile := DownloadFile(c.checksumFileUrl(c.TargetVersion))
@@ -51,34 +51,34 @@ func (c Upgrade) Run() error {
 	// verify checksum
 
 	calculatedChecksum := c.calculateChecksum(upgradeFile)
-	checksum := make([]byte, c.ChecksumSize)
+	checksum := make([]byte, ChecksumSize)
 	checksumSize, checksumErr := checksumFile.Read(checksum)
 
-	if checksumErr != nil || checksumSize != c.ChecksumSize || bytes.Compare(calculatedChecksum, checksum) != 0 {
+	if checksumErr != nil || checksumSize != ChecksumSize || bytes.Compare(calculatedChecksum, checksum) != 0 {
 		return errors.New("invalid checksum")
 	}
 
 	// make a binary file backup
 	isUpgradeSuccessful := false
-	backupBinaryFile := cli.binaryPath + ".bak"
+	backupBinaryFile := c.BinaryPath + ".bak"
 
-	if createBackupError := os.Rename(cli.binaryPath, backupBinaryFile); createBackupError != nil {
+	if createBackupError := os.Rename(c.BinaryPath, backupBinaryFile); createBackupError != nil {
 		return errors.New("cannot replace binary file")
 	}
 
 	// register revert
 	defer func() {
 		if isUpgradeSuccessful == false {
-			os.Rename(backupBinaryFile, cli.binaryPath)
+			os.Rename(backupBinaryFile, c.BinaryPath)
 		}
 	}()
 
 	// replace binary
-	if upgradeBinaryError := os.Rename(upgradeFile.Name(), cli.binaryPath); upgradeBinaryError != nil {
+	if upgradeBinaryError := os.Rename(upgradeFile.Name(), c.BinaryPath); upgradeBinaryError != nil {
 		return upgradeBinaryError
 	}
 
-	if chmodBinaryError := os.Chmod(cli.binaryPath, c.BinaryFileChmod); chmodBinaryError != nil {
+	if chmodBinaryError := os.Chmod(c.BinaryPath, c.BinaryFileChmod); chmodBinaryError != nil {
 		return chmodBinaryError
 	}
 

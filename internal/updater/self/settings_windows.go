@@ -1,7 +1,7 @@
-package self
 // +build windows
 
-const binaryFilename = "cl_cli.exe"
-const checksumFilename = "cl_cli.exe.checksum"
+package self
 
-const binaryPath = "C:\\Program Files\\constellation\\" + binaryFilename
+const BinaryFilename = "cl_cli.exe"
+const ChecksumFilename = "cl_cli.exe.checksum"
+const BinaryPath = "C:\\Program Files\\constellation\\" + BinaryFilename
