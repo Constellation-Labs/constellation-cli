@@ -3,5 +3,6 @@
 package self
 
 const BinaryFilename = "cl_update"
-const ChecksumFilename = "cl_update.checksum"
+const SignatureFilename = "cl_update.sig"
 const BinaryPath = "/usr/local/bin/" + BinaryFilename
+const PublicKeyPath = "assets/public.pem"

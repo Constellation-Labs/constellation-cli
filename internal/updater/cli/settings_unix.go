@@ -3,5 +3,6 @@
 package cli
 
 const BinaryFilename = "cl_cli"
-const ChecksumFilename = "cl_cli.checksum"
+const SignatureFilename = "cl_cli.sig"
 const BinaryPath = "/usr/local/bin/" + BinaryFilename
+const PublicKeyPath = "assets/public.pem"

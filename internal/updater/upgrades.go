@@ -9,8 +9,9 @@ func CommandlineUpgrade(version string) Upgrade {
 		"https://constellationlabs-cli.s3.us-west-1.amazonaws.com/%s/%s/%s/%s",
 		0755,
 		cli.BinaryFilename,
-		cli.ChecksumFilename,
+		cli.SignatureFilename,
 		cli.BinaryPath,
+		cli.PublicKeyPath,
 	}
 }
 
@@ -20,7 +21,8 @@ func SelfUpgrade(version string) Upgrade {
 		"https://constellationlabs-cli.s3.us-west-1.amazonaws.com/%s/%s/%s/%s",
 		0700,
 		self.BinaryFilename,
-		self.ChecksumFilename,
+		self.SignatureFilename,
 		self.BinaryPath,
+		self.PublicKeyPath,
 	}
 }

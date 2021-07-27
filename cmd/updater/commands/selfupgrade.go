@@ -3,6 +3,7 @@ package commands
 import (
 	"constellation/internal/updater"
 	"github.com/spf13/cobra"
+	"log"
 )
 
 func init() {
@@ -16,8 +17,10 @@ func executeSelfUpgrade(cmd *cobra.Command, args []string) {
 	// TODO: if version is latest then handle it
 
 	// TODO: check if current version is matching our target; abandon if not forced
-
-	updater.SelfUpgrade(version).Run()
+	err := updater.SelfUpgrade(version).Run()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 var executeSelfUpgradeCmd = &cobra.Command{
@@ -25,5 +28,6 @@ var executeSelfUpgradeCmd = &cobra.Command{
 	Short: "Selfupgrade of upgrade manager",
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		executeSelfUpgrade(cmd, args)
 	},
 }

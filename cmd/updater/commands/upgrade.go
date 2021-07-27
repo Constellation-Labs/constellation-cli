@@ -3,13 +3,14 @@ package commands
 import (
 	"constellation/internal/updater"
 	"github.com/spf13/cobra"
+	"log"
 )
 
 func init() {
 
 	rootCmd.AddCommand(executeUpgradeCmd)
 	executeUpgradeCmd.Flags().StringP("version", "v", "latest", "target version")
-	executeSelfUpgradeCmd.Flags().BoolP("force", "f", false, "force upgrade")
+	executeUpgradeCmd.Flags().BoolP("force", "f", false, "force upgrade")
 }
 
 func executeUpgrade(cmd *cobra.Command, args []string) {
@@ -18,7 +19,10 @@ func executeUpgrade(cmd *cobra.Command, args []string) {
 
 	// TODO: check if current version is matching our target; abandon if not forced
 
-	updater.CommandlineUpgrade(version).Run()
+	err := updater.CommandlineUpgrade(version).Run()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 var executeUpgradeCmd = &cobra.Command{

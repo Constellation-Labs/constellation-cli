@@ -1,13 +1,10 @@
 package updater
 
 import (
-	"fmt"
-	"github.com/dustin/go-humanize"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 )
 
 type WriteMeter struct {
@@ -15,8 +12,8 @@ type WriteMeter struct {
 }
 
 func (wc WriteMeter) PrintProgressMeter() {
-	fmt.Printf("\r%s", strings.Repeat(" ", 35))
-	fmt.Printf("\rDownloading update file... %s complete", humanize.Bytes(wc.Total))
+	//fmt.Printf("\r%s", strings.Repeat(" ", 35))
+	//fmt.Printf("\rDownloading update file... %s complete", humanize.Bytes(wc.Total))
 }
 
 func (wc *WriteMeter) Write(p []byte) (int, error) {
@@ -31,7 +28,7 @@ func DownloadFile(url string) (error, *os.File) {
 
 	out, err := ioutil.TempFile("", "constellation-*")
 
-	if err != nil || out.Chmod(600) != nil { // TODO: handle chmod error
+	if err != nil || out.Chmod(770) != nil { // TODO: handle chmod error
 		return err, nil // TODO: This is potentially unsecure since we treat chmod error as no error but body is invalid anyway
 	}
 
