@@ -1,78 +1,124 @@
-name: publish
-
 on:
-  release:
-    types:
-      - created
+  push:
+    tags:
+      - 'v*'
+
+name: Release version
+
 env:
   GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
-  build-linux:
+  build:
+    name: Upload Assets to S3
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      matrix:
+        go:
+          - 'linux/386'
+          - 'linux/amd64'
+          - 'freebsd/386'
+          - 'freebsd/amd64'
+          - 'darwin/386'
+          - 'darwin/amd64'
+          - 'windows/386'
+          - 'windows/amd64'
     steps:
       - uses: actions/checkout@v2
+
+      - uses: olegtarasov/get-tag@v2.1
+        id: tagName
+        with:
+          tagRegex: "v(.*)"
+          tagRegexGroup: 1
+
       - name: Set up Go Lang
         uses: actions/setup-go@v1
         with:
           go-version: '1.14'
-      - name: Get release
-        id: get_release
-        uses: bruceadams/get-release@v1.2.0
-      - name: Build
-        run: make build && mv cl_cli cl_cli-linux
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
+
+      - uses: jungwinter/split@v1
+        id: split
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ./cl_cli-linux
-          asset_name: cl_cli-linux
-          asset_content_type: application/zip
-  build-macos:
-    runs-on: macos-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Go Lang
-        uses: actions/setup-go@v1
-        with:
-          go-version: '1.14'
-      - name: Get release
-        id: get_release
-        uses: bruceadams/get-release@v1.2.0
-      - name: Build
-        run: make build && mv cl_cli cl_cli-macos
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ./cl_cli-macos
-          asset_name: cl_cli-macos
-          asset_content_type: application/zip
-  build-windows:
-    runs-on: windows-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Go Lang
-        uses: actions/setup-go@v1
-        with:
-          go-version: '1.14'
-      - name: Get release
-        id: get_release
-        uses: bruceadams/get-release@v1.2.0
+          msg: ${{ matrix.go }}
+          seperator: '/'
+
       - name: Build
         run: |
-         make build
-         mv cl_cli cl_cli-windows.exe
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
+          echo "Building updater"
+          CGO_ENABLED=0 GOOS=${{ steps.split.outputs._0 }} GOARCH=${{ steps.split.outputs._1 }} go build -a -v -o cl_update ./cmd/updater
+          echo "Building cli tool"
+          CGO_ENABLED=0 GOOS=${{ steps.split.outputs._0 }} GOARCH=${{ steps.split.outputs._1 }} go build -a -v -o cl_cli ./cmd/cli
+
+      - name: Generate checksum
+        id: checksum
+        run: |
+          echo "$(sha256sum ./cl_update | sed 's/ .*//')" >> cl_update.checksum
+          echo "$(sha256sum ./cl_cli | sed 's/ .*//')" >> cl_cli.checksum
+
+      - name: Sign
+        shell: bash
+        run: |
+          echo "$PRIVATE_KEY" > privatekey.pem
+          openssl dgst -sha512 -sign privatekey.pem -out cl_update.sig cl_update
+          openssl dgst -sha512 -sign privatekey.pem -out cl_cli.sig cl_cli
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Upload Constellation Updater release asset to S3
+        uses: prewk/s3-cp-action@v2
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ./cl_cli-windows.exe
-          asset_name: cl_cli-windows.exe
-          asset_content_type: application/zip
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: ${{ secrets.AWS_BUCKET_REGION }}
+          source: "./cl_update"
+          dest: "s3://${{ secrets.AWS_BUCKET }}/${{ steps.split.outputs._0 }}/${{ steps.split.outputs._1 }}/${{ steps.tagName.outputs.tag }}/cl_update"
+
+      - name: Upload Constellation CLI release asset to S3
+        uses: prewk/s3-cp-action@v2
+        with:
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: ${{ secrets.AWS_BUCKET_REGION }}
+          source: "./cl_cli"
+          dest: "s3://${{ secrets.AWS_BUCKET }}/${{ steps.split.outputs._0 }}/${{ steps.split.outputs._1 }}/${{ steps.tagName.outputs.tag }}/cl_cli"
+
+      - name: Upload Constellation Updater signature to S3
+        uses: prewk/s3-cp-action@v2
+        with:
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: ${{ secrets.AWS_BUCKET_REGION }}
+          source: "./cl_update.sig"
+          dest: "s3://${{ secrets.AWS_BUCKET }}/${{ steps.split.outputs._0 }}/${{ steps.split.outputs._1 }}/${{ steps.tagName.outputs.tag }}/cl_update.sig"
+
+      - name: Upload Constellation CLI signature to S3
+        uses: prewk/s3-cp-action@v2
+        with:
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: ${{ secrets.AWS_BUCKET_REGION }}
+          source: "./cl_cli.sig"
+          dest: "s3://${{ secrets.AWS_BUCKET }}/${{ steps.split.outputs._0 }}/${{ steps.split.outputs._1 }}/${{ steps.tagName.outputs.tag }}/cl_cli.sig"
+
+  create-release:
+    name: Create release page
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: olegtarasov/get-tag@v2.1
+        id: tagName
+        with:
+          tagRegex: "v(.*)"
+          tagRegexGroup: 1
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.tagName.outputs.tag }}
+          draft: true
+          prerelease: false
+          body_path: CHANGELOG.md
