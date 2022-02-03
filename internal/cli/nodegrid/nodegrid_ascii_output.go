@@ -8,13 +8,22 @@ import (
 
 const (
 	OperationalColor = "\033[1;92m%s\033[0m"
-	WarningColor = "\033[1;33m%s\033[0m"
-	OfflineColor = "\033[1;31m%s\033[0m"
-	WorkingColor = "\033[1;36m%s\033[0m"
-	UnknownColor = "\033[1;37m%s\033[0m"
+	WarningColor     = "\033[1;33m%s\033[0m"
+	OfflineColor     = "\033[1;31m%s\033[0m"
+	WorkingColor     = "\033[1;36m%s\033[0m"
+	UnknownColor     = "\033[1;37m%s\033[0m"
 )
 
-func statusColorFmt(status node.NodeStatus) string {
+func printableNodeStatus(metrics *node.Metrics) string {
+	if metrics == nil {
+		return fmt.Sprintf("/"+statusColorFmt(node.Offline), node.Offline)
+	}
+
+	return fmt.Sprintf("/"+statusColorFmt(metrics.NodeState), metrics.NodeState)
+}
+
+func statusColorFmt(status node.NodeState) string {
+
 	switch status {
 	case node.DownloadCompleteAwaitingFinalSync:
 		return WarningColor
@@ -32,13 +41,17 @@ func statusColorFmt(status node.NodeStatus) string {
 		return WorkingColor
 	case node.Ready:
 		return OperationalColor
+	case node.SessionStarted:
+		return OperationalColor
 	default:
 		return UnknownColor
 	}
 }
 
-func statusSymbol(status node.NodeStatus) string {
+func statusSymbol(status node.NodeState) string {
 	switch status {
+	case node.SessionStarted:
+		return `■■`
 	case node.DownloadCompleteAwaitingFinalSync:
 		return `∎∎`
 	case node.ReadyForDownload:
@@ -60,16 +73,8 @@ func statusSymbol(status node.NodeStatus) string {
 	}
 }
 
-func symbol(status node.NodeStatus) string {
+func symbol(status node.NodeState) string {
 	return fmt.Sprintf(statusColorFmt(status), statusSymbol(status))
-}
-
-func printableNodeStatus(metrics *node.Metrics) string {
-	if metrics == nil {
-		return fmt.Sprintf("/"+statusColorFmt(node.Offline), node.Offline)
-	}
-
-	return fmt.Sprintf("/"+statusColorFmt(metrics.NodeState), metrics.NodeState)
 }
 
 func fmtLatency(d time.Duration) string {
@@ -101,7 +106,7 @@ func operatorName(ni NodeOverview) string {
 	return ""
 }
 
-func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string]node.NodeInfo, verbose bool) {
+func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string]*node.PeerInfo, verbose bool) {
 
 	fmt.Printf("Constellation Hypergraph Network nodes [%d], majority status\n", len(clusterOverview))
 
@@ -125,34 +130,29 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 		if verbose {
 			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-129s %-20s %-40s %-21s %-10s %-10s %-10s %s%s\n",
 				i,
-				nodeOverview.Info.Id.Hex,
-				nodeOverview.Info.Alias,
+				nodeOverview.Info.Id,
+				nodeOverview.Info.Ip, // TODO: replace with alias if available
 				operatorName(nodeOverview),
-				fmt.Sprintf("%s:%d", nodeOverview.Info.Ip.Host, nodeOverview.Info.Ip.Port),
+				fmt.Sprintf("%s:%d", nodeOverview.Info.Ip, nodeOverview.Info.PublicPort),
 				version,
 				snap,
 				latency,
-				fmt.Sprintf(statusColorFmt(nodeOverview.Info.Status), nodeOverview.Info.Status),
+				fmt.Sprintf(statusColorFmt(nodeOverview.Info.CardinalState()), nodeOverview.Info.CardinalState()), // TODO: no status in peer info
 				printableNodeStatus(nodeOverview.Metrics))
 		} else {
 			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-20s %-21s %-10s %-10s %-10s %s%s\n",
 				i,
-				nodeOverview.Info.Alias,
-				fmt.Sprintf("%s:%d", nodeOverview.Info.Ip.Host, nodeOverview.Info.Ip.Port),
+				nodeOverview.Info.Ip,
+				fmt.Sprintf("%s:%d", nodeOverview.Info.Ip, nodeOverview.Info.PublicPort),
 				version,
 				snap,
 				latency,
-				fmt.Sprintf(statusColorFmt(nodeOverview.Info.Status), nodeOverview.Info.Status),
+				fmt.Sprintf(statusColorFmt(nodeOverview.Info.CardinalState()), nodeOverview.Info.CardinalState()),
 				printableNodeStatus(nodeOverview.Metrics))
 		}
 	}
 
-	fmt.Println()
-	fmt.Println()
-
-	fmt.Println("Legend")
-	fmt.Print("   ")
-
+	fmt.Printf("\n\nLegend\n   ")
 	for i, status := range node.ValidStatuses {
 		fmt.Printf("%s %-35s   ", symbol(status), status)
 		if (i+1)%3 == 0 {
@@ -160,10 +160,8 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 		}
 	}
 
-	fmt.Println()
-	fmt.Println()
+	fmt.Printf("\n\n   ")
 
-	fmt.Print("  ")
 	for i, _ := range clusterOverview {
 		fmt.Printf(" %02d", i)
 	}
@@ -173,11 +171,16 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 	for i, rowNode := range clusterOverview {
 		fmt.Printf("%02d", i)
 
-		rowMap := grid[rowNode.Info.Ip.Host]
+		rowMap := grid[rowNode.Info.Ip]
 
 		for _, colNode := range clusterOverview {
-			cell := rowMap[colNode.Info.Ip.Host]
-			fmt.Printf(" %s", symbol(cell.Status))
+			/// ISSUE
+			cardinalState := node.Undefined
+			if cell := rowMap[colNode.Info.Ip]; cell != nil {
+				cardinalState = cell.CardinalState()
+			}
+
+			fmt.Printf(" %s", symbol(cardinalState))
 		}
 
 		fmt.Printf("\n")

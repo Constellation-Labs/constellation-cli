@@ -1,9 +1,9 @@
 package nodegrid
 
 import (
-	"constellation/pkg/lb"
 	"constellation/pkg/node"
 	"github.com/jszwec/csvutil"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"sort"
 	"strings"
@@ -13,20 +13,20 @@ import (
 
 type Nodegrid interface {
 	// Split this as it mixes two concerns
-	BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string, verbose bool)(error, *NetworkStatus)
+	BuildNetworkStatus(url node.Addr, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus)
 	Operators() map[string]Operator
 }
 
 type Operator struct {
-	HexId string `csv:"id"`
+	HexId     string `csv:"id"`
 	DiscordId string `csv:"discord"`
-	Name string `csv:"name"`
+	Name      string `csv:"name"`
 }
 
 type nodegrid struct {
 	operatorsFilePath string
-	operators map[string]Operator
-	operatorsLoaded bool
+	operators         map[string]Operator
+	operatorsLoaded   bool
 }
 
 func (n *nodegrid) Operators() map[string]Operator {
@@ -49,64 +49,78 @@ func (n *nodegrid) Operators() map[string]Operator {
 }
 
 func NewNodegrid(operatorsFile string) Nodegrid {
-	return & nodegrid{operatorsFile, make(map[string]Operator), false}
+	return &nodegrid{operatorsFile, make(map[string]Operator), false}
 }
 
-type nodeResult struct {
-	host string
-	err error
-	info *node.ClusterInfo
+type nodePeersResult struct {
+	host    string
+	err     error
+	peers   *node.Peers
 	latency time.Duration
+	addr    node.Addr
 }
 
-func nodeInfoMap(info node.ClusterInfo) map[string]node.NodeInfo{
-	m := make(map[string]node.NodeInfo)
+func peers2map(peers node.Peers) map[string]*node.PeerInfo {
+	m := make(map[string]*node.PeerInfo)
 
-	for _, nodeInfo := range info {
-		m[nodeInfo.Ip.Host] = nodeInfo
+	for _, peerInfo := range peers {
+		m[peerInfo.Ip] = &peerInfo
 	}
 
 	return m
 }
 
-func clusterInfo(addr node.NodeAddr) nodeResult {
+func getNodePeers(addr node.Addr) nodePeersResult {
 	start := time.Now()
-	ci, e := node.GetClient(addr).GetClusterInfo()
+	peers, e := node.GetPublicClient(addr).Peers()
 	duration := time.Since(start)
 
-	return nodeResult{
-		 addr.Host,
-		  e,
-		  ci,
+	if e != nil {
+		log.Debugf("Cannot get peers for %s %s", addr.Ip, e)
+		emptyPeers := make(node.Peers, 0)
+
+		return nodePeersResult{
+			addr.Ip,
+			e,
+			&emptyPeers,
+			duration,
+			addr,
+		}
+	}
+
+	return nodePeersResult{
+		addr.Ip,
+		e,
+		peers,
 		duration,
+		addr,
 	}
 }
 
-func queryNodeForClusterInfoWorker(wg *sync.WaitGroup, cluster <-chan node.NodeAddr, result chan<- nodeResult) {
+func getNodePeersWorker(wg *sync.WaitGroup, cluster <-chan node.Addr, result chan<- nodePeersResult) {
 	defer wg.Done()
 
 	for addr := range cluster {
-		ci := clusterInfo(addr)
-		result <- ci
+		result <- getNodePeers(addr)
 	}
 }
 
-func (n *nodegrid) buildNetworkGrid(ci *node.ClusterInfo) networkGrid {
+func (n *nodegrid) buildNetworkGrid(addrs *[]node.Addr) networkGrid {
 
 	const workers = 24
 
-	jobs := make(chan node.NodeAddr, len(*ci))
-	results := make(chan nodeResult, len(*ci))
+	jobs := make(chan node.Addr, len(*addrs))
+	results := make(chan nodePeersResult, len(*addrs))
 
 	var wg sync.WaitGroup
 
 	for w := 0; w < workers; w++ {
 		wg.Add(1)
-		go queryNodeForClusterInfoWorker(&wg, jobs, results)
+		go getNodePeersWorker(&wg, jobs, results)
 	}
 
-	for _, nodeInfo := range *ci {
-		jobs <- nodeInfo.Ip
+	for _, addr := range *addrs {
+		jobs <- addr
 	}
 
 	close(jobs)
@@ -115,103 +129,60 @@ func (n *nodegrid) buildNetworkGrid(ci *node.ClusterInfo) networkGrid {
 
 	close(results)
 
-	clusterGrid := make(map[string]map[string]node.NodeInfo)
+	log.Debug("Work on results to regroup")
+
+	clusterGrid := make(map[string]map[string]*node.PeerInfo)
 	nodeLatency := make(map[string]time.Duration)
 
-	for cir := range results {
-		nodeLatency[cir.host] = time.Second * 30
+	for peersResult := range results {
+		nodeLatency[peersResult.host] = time.Second * 30
 
-		if cir.err == nil {
-			clusterGrid[cir.host] = nodeInfoMap(*cir.info)
-			nodeLatency[cir.host] = cir.latency
+		if peersResult.err == nil {
+			clusterGrid[peersResult.host] = peers2map(*peersResult.peers)
+			nodeLatency[peersResult.host] = peersResult.latency
 		}
 	}
+	log.Debug("networkGrid done")
 
-	return networkGrid{clusterGrid, nodeLatency }
+	return networkGrid{clusterGrid, nodeLatency}
 }
 
 type NodeOverview struct {
-	Info                node.NodeInfo
-	Metrics             *node.Metrics
+	Info                node.PeerInfo
 	AvgResponseDuration time.Duration
 	Operator            *Operator
-}
-
-func (n *nodegrid) buildNodeOverviewWorker(wg *sync.WaitGroup, nodes <-chan node.NodeInfo, result chan<- NodeOverview) {
-	defer wg.Done()
-
-	for nodeInfo := range nodes {
-		var op *Operator = nil
-
-		o, e := n.Operators()[nodeInfo.Id.Hex]
-		if e {
-			op = &o
-		}
-
-		start := time.Now()
-		m, _ := node.GetClient(nodeInfo.Ip).GetNodeMetrics()
-		elapsed := time.Since(start)
-
-		result <- NodeOverview{nodeInfo, m, elapsed, op}
-	}
-}
-
-func (n *nodegrid) buildClusterOverview(globalClusterInfo *node.ClusterInfo) []NodeOverview {
-
-	const workers = 24
-
-	jobs := make(chan node.NodeInfo, len(*globalClusterInfo))
-	results := make(chan NodeOverview, len(*globalClusterInfo))
-
-	var wg sync.WaitGroup
-
-	for w := 0; w < workers; w++ {
-		wg.Add(1)
-		go n.buildNodeOverviewWorker(&wg, jobs, results)
-	}
-
-	for _, nodeInfo := range *globalClusterInfo {
-		jobs <- nodeInfo
-	}
-
-	close(jobs)
-
-	wg.Wait()
-
-	close(results)
-
-	var clusterOverview []NodeOverview
-
-	for nodeOverview := range results {
-		clusterOverview = append(clusterOverview, nodeOverview)
-	}
-
-	return clusterOverview
-}
-
-func (n *nodegrid) networkOverviewWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- []NodeOverview) {
-	defer wg.Done()
-	result <- n.buildClusterOverview(globalClusterInfo)
+	Metrics             *node.Metrics
 }
 
 type networkGrid struct {
-	grid map[string]map[string]node.NodeInfo
+	grid    map[string]map[string]*node.PeerInfo
 	latency map[string]time.Duration
 }
 
-func (n *nodegrid) networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *node.ClusterInfo, result chan<- networkGrid) {
+func (n *nodegrid) networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *[]node.Addr, result chan<- networkGrid) {
 	defer wg.Done()
 	result <- n.buildNetworkGrid(globalClusterInfo)
 }
 
 type NetworkStatus struct {
 	NodesList []NodeOverview
-	NodesGrid map[string]map[string]node.NodeInfo
+	NodesGrid map[string]map[string]*node.PeerInfo
 }
 
-func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus) {
+func (n *nodegrid) BuildNetworkStatus(addr node.Addr, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus) {
 
-	globalClusterInfo, err := lb.GetClient(url).GetClusterInfo()
+	//TODO: Until we do not have lb we will query a node
+	peers, err := node.GetPublicClient(addr).Peers()
+
+	if err != nil {
+		panic(err)
+	}
+
+	addrs := make([]node.Addr, len(*peers))
+
+	for i, v := range *peers {
+		addrs[i] = v.Addr()
+	}
 
 	if err == nil {
 
@@ -219,34 +190,34 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 
 		n.Operators()
 
-		nodeResults := make(chan []NodeOverview, 1)
 		gridResults := make(chan networkGrid, 1)
 
-		wg.Add(2)
+		wg.Add(1)
 
-		go n.networkOverviewWorker(&wg, globalClusterInfo, nodeResults)
-		go n.networkGridWorker(&wg, globalClusterInfo, gridResults)
+		go n.networkGridWorker(&wg, &addrs, gridResults)
 
 		wg.Wait()
 
-		close(nodeResults)
 		close(gridResults)
 
-		networkOverview, networkGrid := <-nodeResults, <-gridResults
+		networkGrid := <-gridResults
 
-		for _, n := range networkOverview {
-			n.AvgResponseDuration = (n.AvgResponseDuration + networkGrid.latency[n.Info.Ip.Host])/2
+		networkOverview := make([]NodeOverview, len(networkGrid.latency))
+
+		for i, peer := range *peers {
+			networkOverview[i] = NodeOverview{peer, networkGrid.latency[addr.Ip],
+				nil, nil} // TODO: replace with real values
 		}
 
 		sort.Slice(networkOverview, func(i, j int) bool {
-			return strings.ToLower(networkOverview[i].Info.Alias) < strings.ToLower(networkOverview[j].Info.Alias)
+			return strings.ToLower(networkOverview[i].Info.Ip) < strings.ToLower(networkOverview[j].Info.Ip)
 		})
 
 		if silent == false {
 			PrintAsciiOutput(networkOverview, networkGrid.grid, verbose)
 		}
 
-		if outputImage != ""  {
+		if outputImage != "" {
 			BuildImageOutput(outputImage, networkOverview, networkGrid.grid, outputTheme)
 		}
 

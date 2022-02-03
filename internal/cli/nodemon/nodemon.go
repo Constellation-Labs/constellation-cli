@@ -7,8 +7,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"github.com/go-resty/resty/v2"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"log"
 	"os"
 	"sort"
 	"strings"
@@ -16,16 +16,16 @@ import (
 )
 
 type Nodemon interface {
-	ExecuteNodesCheck(url string, configFile string, statusFile string, outputTheme string, operatorsFile string)
+	ExecuteNodesCheck(url node.Addr, configFile string, statusFile string, outputTheme string, operatorsFile string)
 }
 
-type nodemon struct {}
+type nodemon struct{}
 
 func NewNodemon() Nodemon {
-	return & nodemon{}
+	return &nodemon{}
 }
 
-func (*nodemon) ExecuteNodesCheck(url string, configFile string, statusFile string, outputTheme string, operatorsFile string) {
+func (*nodemon) ExecuteNodesCheck(addr node.Addr, configFile string, statusFile string, outputTheme string, operatorsFile string) {
 	configFileBytes, err := ioutil.ReadFile(configFile)
 
 	if err != nil {
@@ -34,7 +34,7 @@ func (*nodemon) ExecuteNodesCheck(url string, configFile string, statusFile stri
 
 	ng := nodegrid2.NewNodegrid(operatorsFile)
 
- 	nodeOps := ng.Operators()
+	nodeOps := ng.Operators()
 
 	statusFileBytes, _ := ioutil.ReadFile(statusFile)
 
@@ -44,7 +44,11 @@ func (*nodemon) ExecuteNodesCheck(url string, configFile string, statusFile stri
 
 	fmt.Println("Gathering and building cluster status")
 
-	err, networkStatus := ng.BuildNetworkStatus(url, true, imageFile, outputTheme, false)
+	err, networkStatus := ng.BuildNetworkStatus(addr, true, imageFile, outputTheme, false)
+
+	if err != nil {
+		log.Printf("Error building network status")
+	}
 
 	var offlineObservations []string
 
@@ -60,20 +64,20 @@ func (*nodemon) ExecuteNodesCheck(url string, configFile string, statusFile stri
 
 	for _, n := range networkStatus.NodesList {
 		if n.AvgResponseDuration.Milliseconds() > nodegrid2.LatencyTriggerMilliseconds &&
-			n.AvgResponseDuration <= 29 * time.Second {
+			n.AvgResponseDuration <= 29*time.Second {
 
-			slowNodes = append(slowNodes, n.Info.Id.Hex)
-			if op, v := nodeOps[n.Info.Id.Hex]; v{
+			slowNodes = append(slowNodes, n.Info.Id)
+			if op, v := nodeOps[n.Info.Id]; v {
 				slowNodesOperators = append(slowNodesOperators, op)
 			}
 		}
 
-		if n.AvgResponseDuration > 29 * time.Second {
-			offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s:%s", "Nodegrid", n.Info.Id.Hex,n.Info.Status))
+		if n.AvgResponseDuration > 29*time.Second {
+			offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s:%s", "Nodegrid", n.Info.Id, n.Info.CardinalState()))
 			offlineNodesObservationCount++
-			offlineNodes[n.Info.Id.Hex] = true
+			offlineNodes[n.Info.Id] = true
 
-			if op, v := nodeOps[n.Info.Id.Hex]; v{
+			if op, v := nodeOps[n.Info.Id]; v {
 				offlineNodeOperators[op] = true
 			}
 		}
@@ -85,17 +89,17 @@ func (*nodemon) ExecuteNodesCheck(url string, configFile string, statusFile stri
 
 		s := row[observer]
 
-		if node.IsRedownloading(s.Status) == true{
+		if node.IsRedownloading(s.CardinalState()) == true {
 			redownloadNodesSelfObservationCount++
 		}
 
 		for _, cell := range row {
-			if node.IsOffline(cell.Status) {
-				offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s:%s", observer, cell.Id.Hex,cell.Status))
+			if node.IsOffline(cell.CardinalState()) {
+				offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s:%s", observer, cell.Id, cell.CardinalState()))
 				offlineNodesObservationCount++
-				offlineNodes[cell.Id.Hex] = true
+				offlineNodes[cell.Id] = true
 
-				if op, v := nodeOps[cell.Id.Hex]; v{
+				if op, v := nodeOps[cell.Id]; v {
 					offlineNodeOperators[op] = true
 				}
 			}
@@ -119,7 +123,7 @@ func (*nodemon) ExecuteNodesCheck(url string, configFile string, statusFile stri
 		hashCalculator := sha256.New()
 		sort.Strings(offlineObservations)
 
-		obsString:= strings.Join(offlineObservations, "\n")
+		obsString := strings.Join(offlineObservations, "\n")
 		currentHash := fmt.Sprintf("%x", hashCalculator.Sum([]byte(obsString)))
 
 		oldHash := string(statusFileBytes)
@@ -132,7 +136,7 @@ func (*nodemon) ExecuteNodesCheck(url string, configFile string, statusFile stri
 
 		if strings.Compare(currentHash, oldHash) != 0 || redownloadTriggerReached || len(slowNodes) > 0 {
 
-			if (strings.Compare(currentHash, oldHash) != 0) {
+			if strings.Compare(currentHash, oldHash) != 0 {
 				fmt.Println("Network status hash is different")
 			}
 
@@ -160,12 +164,12 @@ func (*nodemon) ExecuteNodesCheck(url string, configFile string, statusFile stri
 
 			imageFileBytes, _ := ioutil.ReadFile(imageFile)
 
- 			client := resty.New()
+			client := resty.New()
 
 			r, e := client.R().
 				SetFormData(map[string]string{
 					"username": "Nodegrid",
-					"content": message,
+					"content":  message,
 				}).
 				SetFileReader("file", "nodegrid.png", bytes.NewReader(imageFileBytes)).Post(webhookUrl)
 

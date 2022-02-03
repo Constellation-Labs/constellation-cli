@@ -2,6 +2,7 @@ package commands
 
 import (
 	nodegrid2 "constellation/internal/cli/nodegrid"
+	"constellation/pkg/node"
 	"fmt"
 	"github.com/spf13/cobra"
 	"os"
@@ -20,7 +21,7 @@ func init() {
 }
 
 func executeNodegrid(cmd *cobra.Command, args []string) {
-	url := args[0]
+	addr := args[0]
 	silent, _ := cmd.Flags().GetBool("silent")
 	outputImage, _ := cmd.Flags().GetString("image")
 	outputTheme, _ := cmd.Flags().GetString("theme")
@@ -29,13 +30,13 @@ func executeNodegrid(cmd *cobra.Command, args []string) {
 
 	ng := nodegrid2.NewNodegrid(operatorsFile)
 
-	ng.BuildNetworkStatus(url, silent, outputImage, outputTheme, verbose)
+	ng.BuildNetworkStatus(node.AddrOf(addr), silent, outputImage, outputTheme, verbose)
 }
 
 var nodegridCmd = &cobra.Command{
 	Use:   "nodegrid [url]",
 	Short: "Build and verify Constellation Hypergraph Network status for a given loadbalancer status url",
-	Args: cobra.ExactArgs(1), // replace with url validation
+	Args:  cobra.ExactArgs(1), // replace with url validation
 	Run: func(cmd *cobra.Command, args []string) {
 		executeNodegrid(cmd, args)
 	},
