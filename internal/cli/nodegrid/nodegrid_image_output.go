@@ -12,24 +12,26 @@ import (
 func statusColorRGB(status node.NodeState) color.RGBA {
 
 	switch status {
-	case node.DownloadCompleteAwaitingFinalSync:
+	case node.StartingSession:
 		return color.RGBA{R: 247, G: 247, B: 52, A: 255}
-	case node.ReadyForDownload:
+	case node.ReadyToJoin:
 		return color.RGBA{R: 247, G: 247, B: 52, A: 255}
-	case node.DownloadInProgress:
+	case node.LoadingGenesis:
 		return color.RGBA{R: 247, G: 247, B: 52, A: 255}
-	case node.PendingDownload:
+	case node.Initial:
 		return color.RGBA{R: 247, G: 247, B: 52, A: 255}
 	case node.Leaving:
 		return color.RGBA{R: 230, G: 78, B: 18, A: 255}
-	case node.SnapshotCreation:
-		return color.RGBA{R: 78, G: 191, B: 189, A: 255}
 	case node.SessionStarted:
+		return color.RGBA{R: 98, G: 191, B: 67, A: 255}
+	case node.GenesisReady:
 		return color.RGBA{R: 98, G: 191, B: 67, A: 255}
 	case node.Ready:
 		return color.RGBA{R: 98, G: 191, B: 67, A: 255}
 	case node.Offline:
 		return color.RGBA{R: 230, G: 78, B: 18, A: 255}
+	case node.Unknown:
+		return color.RGBA{R: 153, G: 102, B: 102, A: 255}
 	case node.Undefined:
 		return color.RGBA{R: 153, G: 102, B: 102, A: 255}
 	default:
@@ -79,11 +81,9 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 	ctx := canvas.NewContext(c)
 
 	nodeIcon := canvas.RoundedRectangle(float64(iconWidth), float64(iconHeight), 1)
-	// fontFamily := canvas.NewFontFamily("Courier Regular")
 
 	var fontFamily *canvas.FontFamily
 	fontFamily = canvas.NewFontFamily("Monospace")
-	//fontFamily.Use(canvas.CommonLigatures)
 	if err := fontFamily.LoadLocalFont("Monospace", canvas.FontRegular); err != nil {
 		panic(err)
 	}
@@ -137,12 +137,13 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 		if nodeOverview.Metrics != nil {
 			version = nodeOverview.Metrics.Version
 			snap = nodeOverview.Metrics.LastSnapshotHeight
-			latency = fmtLatency(nodeOverview.AvgResponseDuration)
 			statusTextFace2 = statusColorRGB(nodeOverview.Metrics.NodeState)
+		}
 
-			if nodeOverview.AvgResponseDuration.Milliseconds() >= LatencyTriggerMilliseconds {
-				latencyColor = alertColor
-			}
+		latency = fmtLatency(nodeOverview.AvgResponseDuration)
+
+		if nodeOverview.AvgResponseDuration.Milliseconds() >= LatencyTriggerMilliseconds {
+			latencyColor = alertColor
 		}
 
 		offsetY := float64(i+1) * textHeight

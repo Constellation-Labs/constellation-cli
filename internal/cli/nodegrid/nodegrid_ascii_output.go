@@ -25,24 +25,28 @@ func printableNodeStatus(metrics *node.Metrics) string {
 func statusColorFmt(status node.NodeState) string {
 
 	switch status {
-	case node.DownloadCompleteAwaitingFinalSync:
+	case node.Initial:
+		return OfflineColor
+	case node.ReadyToJoin:
 		return WarningColor
-	case node.ReadyForDownload:
+	case node.LoadingGenesis:
 		return WarningColor
-	case node.DownloadInProgress:
+	case node.GenesisReady:
 		return WarningColor
-	case node.PendingDownload:
+	case node.StartingSession:
 		return WarningColor
+	case node.SessionStarted:
+		return OperationalColor
+	case node.Ready:
+		return OperationalColor
 	case node.Leaving:
 		return OfflineColor
 	case node.Offline:
 		return OfflineColor
-	case node.SnapshotCreation:
-		return WorkingColor
-	case node.Ready:
-		return OperationalColor
-	case node.SessionStarted:
-		return OperationalColor
+	case node.Unknown:
+		return UnknownColor
+	case node.Undefined:
+		return UnknownColor
 	default:
 		return UnknownColor
 	}
@@ -50,24 +54,28 @@ func statusColorFmt(status node.NodeState) string {
 
 func statusSymbol(status node.NodeState) string {
 	switch status {
+	case node.Initial:
+		return `==`
+	case node.ReadyToJoin:
+		return `==`
+	case node.LoadingGenesis:
+		return `∎∎`
+	case node.GenesisReady:
+		return `∎∎`
+	case node.StartingSession:
+		return `∎∎`
 	case node.SessionStarted:
 		return `■■`
-	case node.DownloadCompleteAwaitingFinalSync:
-		return `∎∎`
-	case node.ReadyForDownload:
-		return `∎∎`
-	case node.DownloadInProgress:
-		return `∎∎`
-	case node.PendingDownload:
-		return `∎∎`
 	case node.Ready:
 		return `■■`
 	case node.Leaving:
 		return `==`
-	case node.SnapshotCreation:
-		return `■■`
 	case node.Offline:
 		return `--`
+	case node.Unknown:
+		return `∎∎`
+	case node.Undefined:
+		return `∎∎`
 	default:
 		return `~~`
 	}
@@ -124,8 +132,9 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 		if nodeOverview.Metrics != nil {
 			version = nodeOverview.Metrics.Version
 			snap = nodeOverview.Metrics.LastSnapshotHeight
-			latency = fmtLatencyAscii(nodeOverview.AvgResponseDuration)
 		}
+
+		latency = fmtLatencyAscii(nodeOverview.AvgResponseDuration)
 
 		if verbose {
 			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-129s %-20s %-40s %-21s %-10s %-10s %-10s %s%s\n",
@@ -160,7 +169,7 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 		}
 	}
 
-	fmt.Printf("\n\n   ")
+	fmt.Printf("\n\n  ")
 
 	for i, _ := range clusterOverview {
 		fmt.Printf(" %02d", i)
@@ -171,12 +180,12 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 	for i, rowNode := range clusterOverview {
 		fmt.Printf("%02d", i)
 
-		rowMap := grid[rowNode.Info.Ip]
+		rowMap := grid[rowNode.Info.Id]
 
 		for _, colNode := range clusterOverview {
-			/// ISSUE
+
 			cardinalState := node.Undefined
-			if cell := rowMap[colNode.Info.Ip]; cell != nil {
+			if cell := rowMap[colNode.Info.Id]; cell != nil {
 				cardinalState = cell.CardinalState()
 			}
 

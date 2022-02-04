@@ -53,7 +53,7 @@ func NewNodegrid(operatorsFile string) Nodegrid {
 }
 
 type nodePeersResult struct {
-	host    string
+	nodeId  string
 	err     error
 	peers   *node.Peers
 	latency time.Duration
@@ -64,7 +64,7 @@ func peers2map(peers node.Peers) map[string]*node.PeerInfo {
 	m := make(map[string]*node.PeerInfo)
 
 	for _, peerInfo := range peers {
-		m[peerInfo.Ip] = &peerInfo
+		m[peerInfo.Id] = &peerInfo
 	}
 
 	return m
@@ -72,7 +72,7 @@ func peers2map(peers node.Peers) map[string]*node.PeerInfo {
 
 func getNodePeers(addr node.Addr) nodePeersResult {
 	start := time.Now()
-	peers, e := node.GetPublicClient(addr).Peers()
+	clusterInfo, e := node.GetPublicClient(addr).ClusterInfo()
 	duration := time.Since(start)
 
 	if e != nil {
@@ -80,7 +80,7 @@ func getNodePeers(addr node.Addr) nodePeersResult {
 		emptyPeers := make(node.Peers, 0)
 
 		return nodePeersResult{
-			addr.Ip,
+			"",
 			e,
 			&emptyPeers,
 			duration,
@@ -89,9 +89,9 @@ func getNodePeers(addr node.Addr) nodePeersResult {
 	}
 
 	return nodePeersResult{
-		addr.Ip,
+		clusterInfo.Id,
 		e,
-		peers,
+		clusterInfo.Peers,
 		duration,
 		addr,
 	}
@@ -135,11 +135,11 @@ func (n *nodegrid) buildNetworkGrid(addrs *[]node.Addr) networkGrid {
 	nodeLatency := make(map[string]time.Duration)
 
 	for peersResult := range results {
-		nodeLatency[peersResult.host] = time.Second * 30
+		nodeLatency[peersResult.nodeId] = time.Second * 30
 
 		if peersResult.err == nil {
-			clusterGrid[peersResult.host] = peers2map(*peersResult.peers)
-			nodeLatency[peersResult.host] = peersResult.latency
+			clusterGrid[peersResult.nodeId] = peers2map(*peersResult.peers)
+			nodeLatency[peersResult.nodeId] = peersResult.latency
 		}
 	}
 	log.Debug("networkGrid done")
@@ -172,15 +172,15 @@ type NetworkStatus struct {
 func (n *nodegrid) BuildNetworkStatus(addr node.Addr, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus) {
 
 	//TODO: Until we do not have lb we will query a node
-	peers, err := node.GetPublicClient(addr).Peers()
+	clusterInfo, err := node.GetPublicClient(addr).ClusterInfo()
 
 	if err != nil {
 		panic(err)
 	}
 
-	addrs := make([]node.Addr, len(*peers))
+	addrs := make([]node.Addr, len(*clusterInfo.Peers))
 
-	for i, v := range *peers {
+	for i, v := range *clusterInfo.Peers {
 		addrs[i] = v.Addr()
 	}
 
@@ -202,10 +202,10 @@ func (n *nodegrid) BuildNetworkStatus(addr node.Addr, silent bool, outputImage s
 
 		networkGrid := <-gridResults
 
-		networkOverview := make([]NodeOverview, len(networkGrid.latency))
+		networkOverview := make([]NodeOverview, len(*clusterInfo.Peers))
 
-		for i, peer := range *peers {
-			networkOverview[i] = NodeOverview{peer, networkGrid.latency[addr.Ip],
+		for i, peer := range *clusterInfo.Peers {
+			networkOverview[i] = NodeOverview{peer, networkGrid.latency[peer.Id],
 				nil, nil} // TODO: replace with real values
 		}
 

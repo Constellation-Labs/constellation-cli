@@ -7,33 +7,30 @@ import (
 	"strings"
 )
 
-type NodeId struct {
-	Hex string `json:"hex"`
-}
-
 type NodeState string
 
 const (
-	PendingDownload                   NodeState = "PendingDownload"
-	SessionStarted                    NodeState = "SessionStarted"
-	ReadyForDownload                  NodeState = "ReadyForDownload"
-	DownloadInProgress                NodeState = "DownloadInProgress"
-	DownloadCompleteAwaitingFinalSync NodeState = "DownloadCompleteAwaitingFinalSync"
-	SnapshotCreation                  NodeState = "SnapshotCreation"
-	Ready                             NodeState = "Ready"
-	Leaving                           NodeState = "Leaving"
-	Offline                           NodeState = "Offline"
-	Undefined                         NodeState = "Undefined"
+	Initial         NodeState = "Initial"
+	ReadyToJoin     NodeState = "ReadyToJoin"
+	LoadingGenesis  NodeState = "LoadingGenesis"
+	GenesisReady    NodeState = "GenesisReady"
+	StartingSession NodeState = "StartingSession"
+	SessionStarted  NodeState = "SessionStarted"
+	Ready           NodeState = "Ready"
+	Leaving         NodeState = "Leaving"
+	Offline         NodeState = "Offline"
+	Unknown         NodeState = "Unknown"
+	Undefined       NodeState = "Undefined"
 )
 
-var ValidStatuses = [...]NodeState{SessionStarted, PendingDownload, ReadyForDownload, DownloadInProgress, DownloadCompleteAwaitingFinalSync, SnapshotCreation, Ready, Leaving, Offline}
+var ValidStatuses = [...]NodeState{Initial, ReadyToJoin, LoadingGenesis, GenesisReady, StartingSession, SessionStarted, Ready, Leaving, Offline, Unknown, Undefined}
 
 func IsRedownloading(status NodeState) bool {
-	return status == PendingDownload || status == ReadyForDownload || status == DownloadInProgress || status == DownloadCompleteAwaitingFinalSync
+	return status == LoadingGenesis
 }
 
 func IsOffline(status NodeState) bool {
-	return status == Leaving || status == Offline
+	return status == Leaving || status == Offline || status == Initial || status == ReadyToJoin
 }
 
 func StateFromString(in string) NodeState {
@@ -52,14 +49,19 @@ type Addr struct {
 }
 
 type PeerInfo struct {
-	Id         string                 `json:"id"`
-	Ip         string                 `json:"ip"`
-	PublicPort int                    `json:"publicPort"`
-	P2PPort    int                    `json:"p2pPort"`
-	Session    string                 `json:"session"`
-	State      map[string]interface{} `json:"state"`
+	Id         string `json:"id"`
+	Ip         string `json:"ip"`
+	PublicPort int    `json:"publicPort"`
+	P2PPort    int    `json:"p2pPort"`
+	Session    string `json:"session"`
+	State      string `json:"state"`
 
 	cardinalState NodeState
+}
+
+type ClusterInfo struct {
+	Id    string
+	Peers *Peers
 }
 
 // TODO:  DEPRECATED, wait until State is so unreadable
@@ -69,12 +71,7 @@ func (pi *PeerInfo) CardinalState() NodeState {
 	}
 
 	if pi.cardinalState == "" {
-		s := ""
-		for k, _ := range pi.State {
-			s = k
-			break
-		}
-		pi.cardinalState = StateFromString(s)
+		pi.cardinalState = StateFromString(pi.State)
 	}
 
 	return pi.cardinalState

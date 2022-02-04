@@ -14,9 +14,7 @@ func TestPeers(t *testing.T) {
 			"publicPort": 9000,
 			"p2pPort": 9001,
 			"session": "9c3bbfac-c3dd-4546-9593-c94e39a2726e",
-			"state": {
-			  "SessionStarted": {}
-			}
+			"state": "SessionStarted"
 		  }
 		]`)
 
