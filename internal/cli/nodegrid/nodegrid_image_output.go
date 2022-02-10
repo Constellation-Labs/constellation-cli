@@ -157,13 +157,8 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 
 		ctx.DrawText(ordOffsetX, textPosY, canvas.NewTextBox(textFace, fmt.Sprintf("%02d", i), 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 
-		ip := ""
-		if nodeOverview.SelfInfo != nil {
-			ip = nodeOverview.SelfInfo.Ip
-		}
-
-		ctx.DrawText(nameOffsetX, textPosY, canvas.NewTextBox(textFace, ip, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)) // TODO: Alias
-		ctx.DrawText(addrOffsetX, textPosY, canvas.NewTextBox(textFace, ip, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
+		ctx.DrawText(nameOffsetX, textPosY, canvas.NewTextBox(textFace, nodeOverview.Ip, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)) // TODO: Alias
+		ctx.DrawText(addrOffsetX, textPosY, canvas.NewTextBox(textFace, nodeOverview.Ip, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 		ctx.DrawText(versionOffsetX, textPosY, canvas.NewTextBox(textFace, version, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 		ctx.DrawText(snapshotOffsetX, textPosY, canvas.NewTextBox(textFace, snap, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 
