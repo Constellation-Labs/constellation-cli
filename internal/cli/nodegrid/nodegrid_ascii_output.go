@@ -11,7 +11,8 @@ const (
 	WarningColor     = "\033[1;33m%s\033[0m"
 	OfflineColor     = "\033[1;31m%s\033[0m"
 	WorkingColor     = "\033[1;36m%s\033[0m"
-	UnknownColor     = "\033[1;37m%s\033[0m"
+	UnknownColor     = "\033[1;34m%s\033[0m"
+	UndefinedColor   = "\033[1;31m%s\033[0m"
 )
 
 func printableNodeStatus(metrics *node.Metrics) string {
@@ -46,7 +47,7 @@ func statusColorFmt(status node.NodeState) string {
 	case node.Unknown:
 		return UnknownColor
 	case node.Undefined:
-		return UnknownColor
+		return UndefinedColor
 	default:
 		return UnknownColor
 	}
@@ -75,7 +76,7 @@ func statusSymbol(status node.NodeState) string {
 	case node.Unknown:
 		return `∎∎`
 	case node.Undefined:
-		return `∎∎`
+		return `~~`
 	default:
 		return `~~`
 	}
@@ -139,24 +140,29 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 		if verbose {
 			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-129s %-20s %-40s %-21s %-10s %-10s %-10s %s%s\n",
 				i,
-				nodeOverview.Info.Id,
-				nodeOverview.Info.Ip, // TODO: replace with alias if available
+				nodeOverview.SelfInfo.Id,
+				nodeOverview.SelfInfo.Ip, // TODO: replace with alias if available
 				operatorName(nodeOverview),
-				fmt.Sprintf("%s:%d", nodeOverview.Info.Ip, nodeOverview.Info.PublicPort),
+				fmt.Sprintf("%s:%d", nodeOverview.SelfInfo.Ip, nodeOverview.SelfInfo.PublicPort),
 				version,
 				snap,
 				latency,
-				fmt.Sprintf(statusColorFmt(nodeOverview.Info.CardinalState()), nodeOverview.Info.CardinalState()), // TODO: no status in peer info
+				fmt.Sprintf(statusColorFmt(nodeOverview.SelfInfo.CardinalState()), nodeOverview.SelfInfo.CardinalState()), // TODO: no status in peer info
 				printableNodeStatus(nodeOverview.Metrics))
 		} else {
+			selfState := node.Undefined
+			if nodeOverview.SelfInfo != nil {
+				selfState = nodeOverview.SelfInfo.CardinalState()
+			}
+
 			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-20s %-21s %-10s %-10s %-10s %s%s\n",
 				i,
-				nodeOverview.Info.Ip,
-				fmt.Sprintf("%s:%d", nodeOverview.Info.Ip, nodeOverview.Info.PublicPort),
+				nodeOverview.Ip,
+				fmt.Sprintf("%s:%d", nodeOverview.Ip, nodeOverview.PublicPort),
 				version,
 				snap,
 				latency,
-				fmt.Sprintf(statusColorFmt(nodeOverview.Info.CardinalState()), nodeOverview.Info.CardinalState()),
+				fmt.Sprintf(statusColorFmt(selfState), selfState),
 				printableNodeStatus(nodeOverview.Metrics))
 		}
 	}
@@ -180,12 +186,12 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 	for i, rowNode := range clusterOverview {
 		fmt.Printf("%02d", i)
 
-		rowMap := grid[rowNode.Info.Id]
+		rowMap := grid[rowNode.Id]
 
 		for _, colNode := range clusterOverview {
 
 			cardinalState := node.Undefined
-			if cell := rowMap[colNode.Info.Id]; cell != nil {
+			if cell := rowMap[colNode.Id]; cell != nil {
 				cardinalState = cell.CardinalState()
 			}
 

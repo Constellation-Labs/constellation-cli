@@ -20,7 +20,7 @@ const (
 	Leaving         NodeState = "Leaving"
 	Offline         NodeState = "Offline"
 	Unknown         NodeState = "Unknown"
-	Undefined       NodeState = "Undefined"
+	Undefined       NodeState = "Undefined" // Internal status when we could not obtain status for the node
 )
 
 var ValidStatuses = [...]NodeState{Initial, ReadyToJoin, LoadingGenesis, GenesisReady, StartingSession, SessionStarted, Ready, Leaving, Offline, Unknown, Undefined}
@@ -40,7 +40,7 @@ func StateFromString(in string) NodeState {
 		}
 	}
 
-	panic(fmt.Sprintf("Status unknown is %s", in))
+	return Unknown
 }
 
 type Addr struct {
@@ -66,10 +66,6 @@ type ClusterInfo struct {
 
 // TODO:  DEPRECATED, wait until State is so unreadable
 func (pi *PeerInfo) CardinalState() NodeState {
-	if pi == nil {
-		return Undefined
-	}
-
 	if pi.cardinalState == "" {
 		pi.cardinalState = StateFromString(pi.State)
 	}

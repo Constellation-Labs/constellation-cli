@@ -66,18 +66,18 @@ func (*nodemon) ExecuteNodesCheck(addr node.Addr, configFile string, statusFile 
 		if n.AvgResponseDuration.Milliseconds() > nodegrid2.LatencyTriggerMilliseconds &&
 			n.AvgResponseDuration <= 29*time.Second {
 
-			slowNodes = append(slowNodes, n.Info.Id)
-			if op, v := nodeOps[n.Info.Id]; v {
+			slowNodes = append(slowNodes, n.SelfInfo.Id)
+			if op, v := nodeOps[n.SelfInfo.Id]; v {
 				slowNodesOperators = append(slowNodesOperators, op)
 			}
 		}
 
 		if n.AvgResponseDuration > 29*time.Second {
-			offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s:%s", "Nodegrid", n.Info.Id, n.Info.CardinalState()))
+			offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s:%s", "Nodegrid", n.SelfInfo.Id, n.SelfInfo.CardinalState()))
 			offlineNodesObservationCount++
-			offlineNodes[n.Info.Id] = true
+			offlineNodes[n.SelfInfo.Id] = true
 
-			if op, v := nodeOps[n.Info.Id]; v {
+			if op, v := nodeOps[n.SelfInfo.Id]; v {
 				offlineNodeOperators[op] = true
 			}
 		}

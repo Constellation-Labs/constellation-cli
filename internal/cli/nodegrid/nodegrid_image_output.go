@@ -31,12 +31,11 @@ func statusColorRGB(status node.NodeState) color.RGBA {
 	case node.Offline:
 		return color.RGBA{R: 230, G: 78, B: 18, A: 255}
 	case node.Unknown:
-		return color.RGBA{R: 153, G: 102, B: 102, A: 255}
+		return color.RGBA{R: 98, G: 186, B: 221, A: 255}
 	case node.Undefined:
 		return color.RGBA{R: 153, G: 102, B: 102, A: 255}
-	default:
-		return color.RGBA{R: 153, G: 102, B: 102, A: 255}
 	}
+	return color.RGBA{R: 153, G: 102, B: 102, A: 255}
 }
 
 func nodeStatusString(metrics *node.Metrics) string {
@@ -130,7 +129,13 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 		var version = "?"
 		var snap = "?"
 		var latency = "?"
-		statusTextFace1 := statusColorRGB(nodeOverview.Info.CardinalState())
+		// segfault
+		selfInfoState := node.Undefined
+		if nodeOverview.SelfInfo != nil {
+			selfInfoState = nodeOverview.SelfInfo.CardinalState()
+		}
+
+		statusTextFace1 := statusColorRGB(selfInfoState)
 		var statusTextFace2 = statusColorRGB(node.Offline)
 		var latencyColor = textColor
 
@@ -151,8 +156,14 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 		lastTextPosY = textPosY
 
 		ctx.DrawText(ordOffsetX, textPosY, canvas.NewTextBox(textFace, fmt.Sprintf("%02d", i), 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
-		ctx.DrawText(nameOffsetX, textPosY, canvas.NewTextBox(textFace, nodeOverview.Info.Ip, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)) // TODO: Alias
-		ctx.DrawText(addrOffsetX, textPosY, canvas.NewTextBox(textFace, nodeOverview.Info.Ip, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
+
+		ip := ""
+		if nodeOverview.SelfInfo != nil {
+			ip = nodeOverview.SelfInfo.Ip
+		}
+
+		ctx.DrawText(nameOffsetX, textPosY, canvas.NewTextBox(textFace, ip, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)) // TODO: Alias
+		ctx.DrawText(addrOffsetX, textPosY, canvas.NewTextBox(textFace, ip, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 		ctx.DrawText(versionOffsetX, textPosY, canvas.NewTextBox(textFace, version, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 		ctx.DrawText(snapshotOffsetX, textPosY, canvas.NewTextBox(textFace, snap, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 
@@ -160,7 +171,7 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 			fontFamily.Face(20.0, latencyColor, canvas.FontRegular, canvas.FontNormal),
 			latency, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 
-		ctx.DrawText(statusLbOffsetX, textPosY, canvas.NewTextBox(fontFamily.Face(20.0, statusTextFace1, canvas.FontRegular, canvas.FontNormal), fmt.Sprintf("%s", nodeOverview.Info.CardinalState()), 0.0, 0.0, canvas.Right, canvas.Top, 0.0, 0.0))
+		ctx.DrawText(statusLbOffsetX, textPosY, canvas.NewTextBox(fontFamily.Face(20.0, statusTextFace1, canvas.FontRegular, canvas.FontNormal), fmt.Sprintf("%s", selfInfoState), 0.0, 0.0, canvas.Right, canvas.Top, 0.0, 0.0))
 		ctx.DrawText(statusSeparatorOffsetX, textPosY, canvas.NewTextBox(textFace, "/", 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
 
 		ctx.DrawText(statusLocalOffsetX, textPosY, canvas.NewTextBox(fontFamily.Face(20.0, statusTextFace2, canvas.FontRegular, canvas.FontNormal), nodeStatusString(nodeOverview.Metrics), 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
@@ -181,7 +192,7 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 
 		offsetY := colNumbersHeight + float64((iconHeight+iconMargin)*row)
 
-		rowMap := grid[rowNode.Info.Ip]
+		rowMap := grid[rowNode.Id]
 
 		tb := canvas.NewTextBox(textFace, fmt.Sprintf("%02d", row), 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)
 
@@ -193,10 +204,15 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 
 			offsetX := textWidth + float64((iconWidth+iconMargin)*col)
 
-			cell := rowMap[colNode.Info.Ip]
+			cell := rowMap[colNode.Id]
 
-			ctx.SetFillColor(statusColorRGB(cell.CardinalState()))
-			ctx.SetStrokeColor(statusColorRGB(cell.CardinalState()))
+			if cell != nil {
+				ctx.SetFillColor(statusColorRGB(cell.CardinalState()))
+				ctx.SetStrokeColor(statusColorRGB(cell.CardinalState()))
+			} else {
+				ctx.SetFillColor(statusColorRGB(node.Undefined))
+				ctx.SetStrokeColor(statusColorRGB(node.Undefined))
+			}
 
 			iconPosY := lastTextPosY - (offsetY + float64(iconHeight))
 

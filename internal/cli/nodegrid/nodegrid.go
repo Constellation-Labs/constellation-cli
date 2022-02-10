@@ -148,7 +148,11 @@ func (n *nodegrid) buildNetworkGrid(addrs *[]node.Addr) networkGrid {
 }
 
 type NodeOverview struct {
-	Info                node.PeerInfo
+	Id         string
+	Ip         string
+	PublicPort int
+
+	SelfInfo            *node.PeerInfo
 	AvgResponseDuration time.Duration
 	Operator            *Operator
 	Metrics             *node.Metrics
@@ -205,12 +209,21 @@ func (n *nodegrid) BuildNetworkStatus(addr node.Addr, silent bool, outputImage s
 		networkOverview := make([]NodeOverview, len(*clusterInfo.Peers))
 
 		for i, peer := range *clusterInfo.Peers {
-			networkOverview[i] = NodeOverview{peer, networkGrid.latency[peer.Id],
-				nil, nil} // TODO: replace with real values
+
+			selfInfo := networkGrid.grid[peer.Id][peer.Id]
+
+			networkOverview[i] = NodeOverview{
+				peer.Id,
+				peer.Ip,
+				peer.PublicPort,
+				selfInfo,
+				networkGrid.latency[peer.Id],
+				nil,
+				nil} // TODO: replace with real values
 		}
 
 		sort.Slice(networkOverview, func(i, j int) bool {
-			return strings.ToLower(networkOverview[i].Info.Ip) < strings.ToLower(networkOverview[j].Info.Ip)
+			return strings.ToLower(networkOverview[i].Ip) < strings.ToLower(networkOverview[j].Ip)
 		})
 
 		if silent == false {
