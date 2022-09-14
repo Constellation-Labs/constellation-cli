@@ -1,80 +1,13 @@
 package nodemap
 
 import (
+	"constellation/internal/cli/nodegrid"
 	"constellation/pkg/node"
 	"fmt"
 )
 
-const (
-	OperationalColor = "\033[1;92m%s\033[0m"
-	WarningColor     = "\033[1;33m%s\033[0m"
-	OfflineColor     = "\033[1;31m%s\033[0m"
-	WorkingColor     = "\033[1;36m%s\033[0m"
-	UnknownColor     = "\033[1;34m%s\033[0m"
-	UndefinedColor   = "\033[1;31m%s\033[0m"
-)
-
-func statusColorFmt(status node.NodeState) string {
-
-	switch status {
-	case node.Initial:
-		return OfflineColor
-	case node.ReadyToJoin:
-		return WarningColor
-	case node.LoadingGenesis:
-		return WarningColor
-	case node.GenesisReady:
-		return WarningColor
-	case node.StartingSession:
-		return WarningColor
-	case node.SessionStarted:
-		return OperationalColor
-	case node.Ready:
-		return OperationalColor
-	case node.Leaving:
-		return OfflineColor
-	case node.Offline:
-		return OfflineColor
-	case node.Unknown:
-		return UnknownColor
-	case node.Undefined:
-		return UndefinedColor
-	default:
-		return UnknownColor
-	}
-}
-
-func statusSymbol(status node.NodeState) string {
-	switch status {
-	case node.Initial:
-		return `==`
-	case node.ReadyToJoin:
-		return `==`
-	case node.LoadingGenesis:
-		return `∎∎`
-	case node.GenesisReady:
-		return `∎∎`
-	case node.StartingSession:
-		return `∎∎`
-	case node.SessionStarted:
-		return `■■`
-	case node.Ready:
-		return `■■`
-	case node.Leaving:
-		return `==`
-	case node.Offline:
-		return `--`
-	case node.Unknown:
-		return `∎∎`
-	case node.Undefined:
-		return `~~`
-	default:
-		return `~~`
-	}
-}
-
 func symbol(status node.NodeState) string {
-	return fmt.Sprintf(statusColorFmt(status), statusSymbol(status))
+	return fmt.Sprintf(nodegrid.StatusColorFmt(status), nodegrid.StatusSymbol(status))
 }
 
 func PrintAsciiOutput(clusterOverview []ClusterNode, grid map[string]map[string]*node.PeerInfo, verbose bool) {
@@ -94,7 +27,7 @@ func PrintAsciiOutput(clusterOverview []ClusterNode, grid map[string]map[string]
 			i,
 			nodeOverview.Id,
 			fmt.Sprintf("%s:%d", nodeOverview.Addr.Ip, nodeOverview.Addr.Port),
-			fmt.Sprintf(statusColorFmt(selfState), selfState))
+			fmt.Sprintf(nodegrid.StatusColorFmt(selfState), selfState))
 	}
 
 	fmt.Printf("\n\nLegend\n   ")

@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"strconv"
 	"strings"
@@ -40,6 +41,8 @@ func StateFromString(in string) NodeState {
 			return v
 		}
 	}
+
+	log.Debugf("Status=%s is unknown", in)
 
 	return Unknown
 }

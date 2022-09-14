@@ -17,13 +17,13 @@ const (
 
 func printableNodeStatus(metrics *node.Metrics) string {
 	if metrics == nil {
-		return fmt.Sprintf("/"+statusColorFmt(node.Offline), node.Offline)
+		return fmt.Sprintf("/"+StatusColorFmt(node.Offline), node.Offline)
 	}
 
-	return fmt.Sprintf("/"+statusColorFmt(metrics.NodeState), metrics.NodeState)
+	return fmt.Sprintf("/"+StatusColorFmt(metrics.NodeState), metrics.NodeState)
 }
 
-func statusColorFmt(status node.NodeState) string {
+func StatusColorFmt(status node.NodeState) string {
 
 	switch status {
 	case node.Initial:
@@ -55,8 +55,10 @@ func statusColorFmt(status node.NodeState) string {
 	}
 }
 
-func statusSymbol(status node.NodeState) string {
+func StatusSymbol(status node.NodeState) string {
 	switch status {
+	case node.Observing:
+		return `oo`
 	case node.Initial:
 		return `==`
 	case node.ReadyToJoin:
@@ -79,15 +81,13 @@ func statusSymbol(status node.NodeState) string {
 		return `∎∎`
 	case node.Undefined:
 		return `~~`
-	case node.Observing:
-		return `oo`
 	default:
 		return `~~`
 	}
 }
 
 func symbol(status node.NodeState) string {
-	return fmt.Sprintf(statusColorFmt(status), statusSymbol(status))
+	return fmt.Sprintf(StatusColorFmt(status), StatusSymbol(status))
 }
 
 func fmtLatency(d time.Duration) string {
@@ -151,7 +151,7 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 				version,
 				snap,
 				latency,
-				fmt.Sprintf(statusColorFmt(nodeOverview.SelfInfo.CardinalState()), nodeOverview.SelfInfo.CardinalState()), // TODO: no status in peer info
+				fmt.Sprintf(StatusColorFmt(nodeOverview.SelfInfo.CardinalState()), nodeOverview.SelfInfo.CardinalState()), // TODO: no status in peer info
 				printableNodeStatus(nodeOverview.Metrics))
 		} else {
 			selfState := node.Undefined
@@ -166,7 +166,7 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 				version,
 				snap,
 				latency,
-				fmt.Sprintf(statusColorFmt(selfState), selfState),
+				fmt.Sprintf(StatusColorFmt(selfState), selfState),
 				printableNodeStatus(nodeOverview.Metrics))
 		}
 	}
