@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -41,7 +41,7 @@ func (n *node) Peers() (*Peers, error) {
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		log.Errorf("Failed to read node response body from=%s error=%s status=%d\n", url.String(), err.Error(), resp.StatusCode)
@@ -91,7 +91,7 @@ func (n *node) ClusterInfo() (*ClusterInfo, error) {
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		log.Errorf("Failed to read node response body error=%s status=%d\n", err.Error(), resp.StatusCode)

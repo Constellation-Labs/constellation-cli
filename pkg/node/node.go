@@ -20,10 +20,11 @@ const (
 	Leaving         NodeState = "Leaving"
 	Offline         NodeState = "Offline"
 	Unknown         NodeState = "Unknown"
+	Observing       NodeState = "Observing"
 	Undefined       NodeState = "Undefined" // Internal status when we could not obtain status for the node
 )
 
-var ValidStatuses = [...]NodeState{Initial, ReadyToJoin, LoadingGenesis, GenesisReady, StartingSession, SessionStarted, Ready, Leaving, Offline, Unknown, Undefined}
+var ValidStatuses = [...]NodeState{Initial, ReadyToJoin, LoadingGenesis, GenesisReady, StartingSession, SessionStarted, Ready, Leaving, Offline, Unknown, Observing, Undefined}
 
 func IsRedownloading(status NodeState) bool {
 	return status == LoadingGenesis
@@ -73,7 +74,7 @@ func (pi *PeerInfo) CardinalState() NodeState {
 	return pi.cardinalState
 }
 
-//TODO: this is a placeholder
+// TODO: this is a placeholder
 type Metrics struct {
 	Version            string
 	LastSnapshotHeight string

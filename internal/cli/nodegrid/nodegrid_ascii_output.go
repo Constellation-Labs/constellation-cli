@@ -10,9 +10,9 @@ const (
 	OperationalColor = "\033[1;92m%s\033[0m"
 	WarningColor     = "\033[1;33m%s\033[0m"
 	OfflineColor     = "\033[1;31m%s\033[0m"
-	WorkingColor     = "\033[1;36m%s\033[0m"
 	UnknownColor     = "\033[1;34m%s\033[0m"
 	UndefinedColor   = "\033[1;31m%s\033[0m"
+	ObservingColor   = "\033[1;36m%s\033[0m"
 )
 
 func printableNodeStatus(metrics *node.Metrics) string {
@@ -46,6 +46,8 @@ func statusColorFmt(status node.NodeState) string {
 		return OfflineColor
 	case node.Unknown:
 		return UnknownColor
+	case node.Observing:
+		return ObservingColor
 	case node.Undefined:
 		return UndefinedColor
 	default:
@@ -77,6 +79,8 @@ func statusSymbol(status node.NodeState) string {
 		return `∎∎`
 	case node.Undefined:
 		return `~~`
+	case node.Observing:
+		return `oo`
 	default:
 		return `~~`
 	}

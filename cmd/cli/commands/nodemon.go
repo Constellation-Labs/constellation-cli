@@ -37,7 +37,7 @@ func executeNodemon(cmd *cobra.Command, args []string) {
 
 var nodemonCmd = &cobra.Command{
 	Use:   "nodemon [url]",
-	Short: "Build and verify Constellation Hypergraph Network status for a given loadbalancer status url",
+	Short: "Discover, build and verify Constellation Hypergraph Network topography without lb",
 	Args:  cobra.ExactArgs(1), // replace with url validation
 	Run: func(cmd *cobra.Command, args []string) {
 		executeNodemon(cmd, args)
