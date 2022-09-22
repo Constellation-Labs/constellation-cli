@@ -10,7 +10,7 @@ func symbol(status node.NodeState) string {
 	return fmt.Sprintf(nodegrid.StatusColorFmt(status), nodegrid.StatusSymbol(status))
 }
 
-func PrintAsciiOutput(clusterOverview []ClusterNode, grid map[string]map[string]*node.PeerInfo, verbose bool) {
+func PrintAsciiOutput(clusterOverview []ClusterNode, grid map[string]map[string]node.PeerInfo, verbose bool) {
 
 	fmt.Printf("Cluster discovery result nodes [%d]\n", len(clusterOverview))
 
@@ -54,7 +54,7 @@ func PrintAsciiOutput(clusterOverview []ClusterNode, grid map[string]map[string]
 		for _, colNode := range clusterOverview {
 
 			cardinalState := node.Undefined
-			if cell := rowMap[colNode.Id]; cell != nil {
+			if cell, ok := rowMap[colNode.Id]; ok {
 				cardinalState = cell.CardinalState()
 			}
 

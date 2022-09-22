@@ -64,7 +64,8 @@ func (n *node) Peers() (*Peers, error) {
 		return nil, err
 	}
 
-	log.Debugf("Got peers %d from %s %s", len(ci), n.addr.Ip, id)
+	log.Debugf("Peers endpoint returned peers %d from %s %s", len(ci), n.addr.Ip, id)
+	log.Trace(ci)
 
 	return &ci, nil
 }
@@ -114,7 +115,8 @@ func (n *node) ClusterInfo() (*ClusterInfo, error) {
 		return nil, err
 	}
 
-	log.Debugf("Got peers %d from %s %s", len(ci), n.addr.Ip, id)
+	log.Debugf("Cluster info returned peers %d from %s %s", len(ci), n.addr.Ip, id)
+	log.Trace(ci)
 
 	return &ClusterInfo{id, &ci}, nil
 }

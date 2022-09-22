@@ -28,12 +28,16 @@ type nodePeersResult struct {
 	addr    node.Addr
 }
 
-func peers2map(peers node.Peers) map[string]*node.PeerInfo {
-	m := make(map[string]*node.PeerInfo)
+func peers2map(peers node.Peers) map[string]node.PeerInfo {
+	m := make(map[string]node.PeerInfo)
+
+	log.Debugf("Making map of %d list", len(peers))
 
 	for _, peerInfo := range peers {
-		m[peerInfo.Id] = &peerInfo
+		m[peerInfo.Id] = peerInfo
 	}
+
+	log.Debugf("Made map of %d list", len(m))
 
 	return m
 }
@@ -56,6 +60,8 @@ func getNodePeers(addr node.Addr) nodePeersResult {
 		}
 	}
 
+	log.Debugf("Return info with %d peers %s", len(*clusterInfo.Peers), clusterInfo.Id)
+
 	return nodePeersResult{
 		clusterInfo.Id,
 		e,
@@ -69,12 +75,13 @@ func getNodePeersWorker(wg *sync.WaitGroup, cluster <-chan node.Addr, result cha
 	defer wg.Done()
 
 	for addr := range cluster {
-		log.Debug("Get peers", addr)
 		result <- getNodePeers(addr)
 	}
 }
 
 func (n *nodemap) buildNetworkmap(addrs *[]node.Addr) networkGrid {
+
+	log.Debug("Fetch from addrs", addrs)
 
 	const workers = 24
 
@@ -100,7 +107,7 @@ func (n *nodemap) buildNetworkmap(addrs *[]node.Addr) networkGrid {
 
 	log.Debug("Work on results to regroup")
 
-	clustermap := make(map[string]map[string]*node.PeerInfo)
+	clustermap := make(map[string]map[string]node.PeerInfo)
 	nodeLatency := make(map[string]time.Duration)
 
 	for peersResult := range results {
@@ -117,7 +124,7 @@ func (n *nodemap) buildNetworkmap(addrs *[]node.Addr) networkGrid {
 }
 
 type networkGrid struct {
-	grid    map[string]map[string]*node.PeerInfo
+	grid    map[string]map[string]node.PeerInfo
 	latency map[string]time.Duration
 }
 
@@ -128,13 +135,27 @@ func (n *nodemap) networkmapWorker(wg *sync.WaitGroup, globalClusterInfo *[]node
 
 type NetworkStatus struct {
 	DiscoveredNodes []*node.PeerInfo
-	NodesMap        map[string]map[string]*node.PeerInfo
+	NodesMap        map[string]map[string]node.PeerInfo
 }
 
 type ClusterNode struct {
 	Addr     node.Addr
 	Id       string
 	SelfInfo *node.PeerInfo
+}
+
+func (n *nodemap) fetchPool(freshAddrPool []node.Addr) map[string]map[string]node.PeerInfo {
+	var wg sync.WaitGroup
+
+	mapResults := make(chan networkGrid, 1)
+	wg.Add(1)
+	go n.networkmapWorker(&wg, &freshAddrPool, mapResults)
+	wg.Wait()
+	close(mapResults)
+
+	partialResult := <-mapResults
+
+	return partialResult.grid
 }
 
 func (n *nodemap) DiscoverNetwork(addr node.Addr, verbose bool) (error, *NetworkStatus) {
@@ -153,35 +174,34 @@ func (n *nodemap) DiscoverNetwork(addr node.Addr, verbose bool) (error, *Network
 		ids[i] = v.Id
 	}
 
-	newAddrs := addrs
+	freshAddrPool := addrs
 
 	networkGridAccumulator := networkGrid{
-		make(map[string]map[string]*node.PeerInfo),
+		make(map[string]map[string]node.PeerInfo),
 		make(map[string]time.Duration),
 	}
 
-	for len(newAddrs) > 0 {
-		log.Debugf("Discovery in progress for %d peers", len(newAddrs))
+	for len(freshAddrPool) > 0 {
+		log.Debugf("Discovery in progress for %d peers", len(freshAddrPool))
 
-		var wg sync.WaitGroup
+		partialGrid := n.fetchPool(freshAddrPool)
+		freshAddrPool = nil
 
-		mapResults := make(chan networkGrid, 1)
-		wg.Add(1)
-		go n.networkmapWorker(&wg, &newAddrs, mapResults)
-		wg.Wait()
-		close(mapResults)
-		newAddrs = nil
+		for nodeid, nodesgrid := range partialGrid {
 
-		partialResult := <-mapResults
+			log.Debugf("Size of grid for %s is %d", nodeid, len(nodesgrid))
+			log.Debug(nodesgrid)
 
-		for k, v := range partialResult.grid {
+			networkGridAccumulator.grid[nodeid] = nodesgrid
 
-			networkGridAccumulator.grid[k] = v
+			for kk, pinfo := range nodesgrid {
 
-			for _, pinfo := range v {
+				log.Debugf("Checking %s if contains %s %s %s", kk, pinfo.Addr(), pinfo.Ip, pinfo.Id)
 
 				if !slices.Contains(addrs, pinfo.Addr()) {
-					newAddrs = append(newAddrs, pinfo.Addr())
+
+					log.Infof("Discovered new peer from %s->%s %s", nodeid, pinfo.Id, pinfo.Ip)
+					freshAddrPool = append(freshAddrPool, pinfo.Addr())
 					ids = append(ids, pinfo.Id)
 					addrs = append(addrs, pinfo.Addr())
 				}
@@ -195,10 +215,12 @@ func (n *nodemap) DiscoverNetwork(addr node.Addr, verbose bool) (error, *Network
 
 	for i, peer := range ids {
 
+		selfInfo := networkGridAccumulator.grid[peer][peer]
+
 		clusterOverview[i] = ClusterNode{
 			addrs[i],
 			ids[i],
-			networkGridAccumulator.grid[peer][peer],
+			&selfInfo,
 		}
 	}
 
