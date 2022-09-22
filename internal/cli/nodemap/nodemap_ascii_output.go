@@ -4,6 +4,7 @@ import (
 	"constellation/internal/cli/nodegrid"
 	"constellation/pkg/node"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 )
 
 func symbol(status node.NodeState) string {
@@ -22,6 +23,7 @@ func PrintAsciiOutput(clusterOverview []ClusterNode, grid map[string]map[string]
 		if nodeOverview.SelfInfo != nil {
 			selfState = nodeOverview.SelfInfo.CardinalState()
 		}
+		log.Debug(nodeOverview.SelfInfo)
 
 		fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-132s %-21s %-10s\n",
 			i,

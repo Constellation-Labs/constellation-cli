@@ -215,12 +215,18 @@ func (n *nodemap) DiscoverNetwork(addr node.Addr, verbose bool) (error, *Network
 
 	for i, peer := range ids {
 
-		selfInfo := networkGridAccumulator.grid[peer][peer]
-
-		clusterOverview[i] = ClusterNode{
-			addrs[i],
-			ids[i],
-			&selfInfo,
+		if selfInfo, ok := networkGridAccumulator.grid[peer][peer]; ok {
+			clusterOverview[i] = ClusterNode{
+				addrs[i],
+				ids[i],
+				&selfInfo,
+			}
+		} else {
+			clusterOverview[i] = ClusterNode{
+				addrs[i],
+				ids[i],
+				nil,
+			}
 		}
 	}
 
