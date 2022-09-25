@@ -121,7 +121,7 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 	fmt.Printf("Constellation Hypergraph Network nodes [%d], majority status\n", len(clusterOverview))
 
 	if verbose {
-		fmt.Printf("\u001B[1;35m## %9s  %-20s %-10s %s\u001B[0m\n", "Id", "Address", "Status Lb/Node")
+		fmt.Printf("\u001B[1;35m## %9s  %-20s %-10s \u001B[0m\n", "Id", "Address", "Status Lb/Node")
 	} else {
 		fmt.Printf("\u001B[1;35m## %9s %-20s %s\u001B[0m\n", "Id", "Address", "Status Lb/Node")
 	}

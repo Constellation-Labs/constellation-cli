@@ -193,14 +193,13 @@ func (n *nodemap) DiscoverNetwork(addr node.Addr, silent bool, verbose bool, out
 
 		for nodeid, nodesgrid := range partialGrid {
 
-			log.Trace("Size of grid for %s is %d", nodeid, len(nodesgrid))
-			log.Debug(nodesgrid)
+			log.Tracef("Size of grid for %s is %d", nodeid, len(nodesgrid))
 
 			networkGridAccumulator.grid[nodeid] = nodesgrid
 
 			for kk, pinfo := range nodesgrid {
 
-				log.Trace("Checking %s if contains %s %s", kk, pinfo.Ip, pinfo.Id)
+				log.Tracef("Checking %s if contains %s %s", kk, pinfo.Ip, pinfo.Id)
 
 				if !slices.Contains(addrs, pinfo.Addr()) {
 
