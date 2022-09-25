@@ -116,14 +116,14 @@ func fmtLatencyAscii(d time.Duration) string {
 	return lat
 }
 
-func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string]*node.PeerInfo, verbose bool) {
+func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string]node.PeerInfo, verbose bool) {
 
 	fmt.Printf("Constellation Hypergraph Network nodes [%d], majority status\n", len(clusterOverview))
 
 	if verbose {
-		fmt.Printf("\u001B[1;35m##  %-129s %-20s %-40s %-21s %-10s %-10s %-10s %s\u001B[0m\n", "Id", "Alias", "Operator", "Address", "Version", "Snapshot", "Latency", "Status Lb/Node")
+		fmt.Printf("\u001B[1;35m## %9s  %-20s %-10s %s\u001B[0m\n", "Id", "Address", "Status Lb/Node")
 	} else {
-		fmt.Printf("\u001B[1;35m##  %-20s %-21s %-10s %-10s %-10s %s\u001B[0m\n", "Alias", "Address", "Version", "Snapshot", "Latency", "Status Lb/Node")
+		fmt.Printf("\u001B[1;35m## %9s %-20s %s\u001B[0m\n", "Id", "Address", "Status Lb/Node")
 	}
 
 	for i, nodeOverview := range clusterOverview {
@@ -131,7 +131,7 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 		if verbose {
 			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-9s %-20s %-21s %s%s\n",
 				i,
-				nodeOverview.SelfInfo.ShortId(),
+				nodeOverview.LbInfo.ShortId(),
 				nodeOverview.SelfInfo.Ip, // TODO: replace with alias if available
 				fmt.Sprintf("%s:%d", nodeOverview.SelfInfo.Ip, nodeOverview.SelfInfo.PublicPort),
 
@@ -145,7 +145,7 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 
 			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-9s %-21s %s%s\n",
 				i,
-				nodeOverview.SelfInfo.ShortId(),
+				nodeOverview.LbInfo.ShortId(),
 				fmt.Sprintf("%s:%d", nodeOverview.Ip, nodeOverview.PublicPort),
 				fmt.Sprintf(StatusColorFmt(selfState), selfState),
 				printableNodeStatus(nodeOverview))
@@ -176,7 +176,7 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 		for _, colNode := range clusterOverview {
 
 			cardinalState := node.Undefined
-			if cell := rowMap[colNode.Id]; cell != nil {
+			if cell, ok := rowMap[colNode.Id]; ok {
 				cardinalState = cell.CardinalState()
 			}
 

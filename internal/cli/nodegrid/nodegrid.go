@@ -3,9 +3,7 @@ package nodegrid
 import (
 	"constellation/pkg/lb"
 	"constellation/pkg/node"
-	"github.com/jszwec/csvutil"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
 	"sort"
 	"strings"
 	"sync"
@@ -13,44 +11,14 @@ import (
 )
 
 type Nodegrid interface {
-	// Split this as it mixes two concerns
 	BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus)
-	Operators() map[string]Operator
-}
-
-type Operator struct {
-	HexId     string `csv:"id"`
-	DiscordId string `csv:"discord"`
-	Name      string `csv:"name"`
 }
 
 type nodegrid struct {
-	operatorsFilePath string
-	operators         map[string]Operator
-	operatorsLoaded   bool
-}
-
-func (n *nodegrid) Operators() map[string]Operator {
-
-	if !n.operatorsLoaded {
-		var operators []Operator
-
-		operatorsFileBytes, _ := ioutil.ReadFile(n.operatorsFilePath)
-
-		csvutil.Unmarshal(operatorsFileBytes, &operators)
-
-		for _, o := range operators {
-			n.operators[o.HexId] = o
-		}
-
-		n.operatorsLoaded = true
-	}
-
-	return n.operators
 }
 
 func NewNodegrid(operatorsFile string) Nodegrid {
-	return &nodegrid{operatorsFile, make(map[string]Operator), false}
+	return &nodegrid{}
 }
 
 type nodePeersResult struct {
@@ -61,11 +29,11 @@ type nodePeersResult struct {
 	addr    node.Addr
 }
 
-func peers2map(peers node.Peers) map[string]*node.PeerInfo {
-	m := make(map[string]*node.PeerInfo)
+func peers2map(peers node.Peers) map[string]node.PeerInfo {
+	m := make(map[string]node.PeerInfo)
 
 	for _, peerInfo := range peers {
-		m[peerInfo.Id] = &peerInfo
+		m[peerInfo.Id] = peerInfo
 	}
 
 	return m
@@ -132,7 +100,7 @@ func (n *nodegrid) buildNetworkGrid(addrs *[]node.Addr) networkGrid {
 
 	log.Debug("Work on results to regroup")
 
-	clusterGrid := make(map[string]map[string]*node.PeerInfo)
+	clusterGrid := make(map[string]map[string]node.PeerInfo)
 	nodeLatency := make(map[string]time.Duration)
 
 	for peersResult := range results {
@@ -158,7 +126,7 @@ type NodeOverview struct {
 }
 
 type networkGrid struct {
-	grid    map[string]map[string]*node.PeerInfo
+	grid    map[string]map[string]node.PeerInfo
 	latency map[string]time.Duration
 }
 
@@ -169,7 +137,7 @@ func (n *nodegrid) networkGridWorker(wg *sync.WaitGroup, globalClusterInfo *[]no
 
 type NetworkStatus struct {
 	NodesList []NodeOverview
-	NodesGrid map[string]map[string]*node.PeerInfo
+	NodesGrid map[string]map[string]node.PeerInfo
 }
 
 func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus) {
@@ -190,8 +158,6 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 
 		var wg sync.WaitGroup
 
-		n.Operators()
-
 		gridResults := make(chan networkGrid, 1)
 
 		wg.Add(1)
@@ -208,14 +174,24 @@ func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage strin
 
 		for i, peer := range *clusterNodes {
 
-			selfInfo := networkGrid.grid[peer.Id][peer.Id]
+			selfInfo, exists := networkGrid.grid[peer.Id][peer.Id]
 
-			networkOverview[i] = NodeOverview{
-				peer.Id,
-				peer.Ip,
-				peer.PublicPort,
-				peer,
-				selfInfo,
+			if exists {
+				networkOverview[i] = NodeOverview{
+					peer.Id,
+					peer.Ip,
+					peer.PublicPort,
+					peer,
+					&selfInfo,
+				}
+			} else {
+				networkOverview[i] = NodeOverview{
+					peer.Id,
+					peer.Ip,
+					peer.PublicPort,
+					peer,
+					nil,
+				}
 			}
 		}
 
