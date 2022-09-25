@@ -10,7 +10,7 @@ import (
 
 type Nodemap interface {
 	// Split this as it mixes two concerns
-	DiscoverNetwork(url node.Addr, silent bool) (error, *NetworkStatus)
+	DiscoverNetwork(url node.Addr, silent bool, verbose bool, outputImage string, outputTheme string) (error, *NetworkStatus)
 }
 
 type nodemap struct {
@@ -144,6 +144,10 @@ type ClusterNode struct {
 	SelfInfo *node.PeerInfo
 }
 
+func (p ClusterNode) ShortId() string {
+	return p.Id[0:8]
+}
+
 func (n *nodemap) fetchPool(freshAddrPool []node.Addr) map[string]map[string]node.PeerInfo {
 	var wg sync.WaitGroup
 
@@ -158,7 +162,7 @@ func (n *nodemap) fetchPool(freshAddrPool []node.Addr) map[string]map[string]nod
 	return partialResult.grid
 }
 
-func (n *nodemap) DiscoverNetwork(addr node.Addr, verbose bool) (error, *NetworkStatus) {
+func (n *nodemap) DiscoverNetwork(addr node.Addr, silent bool, verbose bool, outputImage string, outputTheme string) (error, *NetworkStatus) {
 
 	clusterInfo, err := node.GetPublicClient(addr).ClusterInfo()
 
@@ -189,18 +193,18 @@ func (n *nodemap) DiscoverNetwork(addr node.Addr, verbose bool) (error, *Network
 
 		for nodeid, nodesgrid := range partialGrid {
 
-			log.Debugf("Size of grid for %s is %d", nodeid, len(nodesgrid))
+			log.Trace("Size of grid for %s is %d", nodeid, len(nodesgrid))
 			log.Debug(nodesgrid)
 
 			networkGridAccumulator.grid[nodeid] = nodesgrid
 
 			for kk, pinfo := range nodesgrid {
 
-				log.Debugf("Checking %s if contains %s %s %s", kk, pinfo.Addr(), pinfo.Ip, pinfo.Id)
+				log.Trace("Checking %s if contains %s %s", kk, pinfo.Ip, pinfo.Id)
 
 				if !slices.Contains(addrs, pinfo.Addr()) {
 
-					log.Infof("Discovered new peer from %s->%s %s", nodeid, pinfo.Id, pinfo.Ip)
+					log.Infof("Discovered new peer from %s->%s %s", nodeid[0:8], pinfo.Id[0:8], pinfo.Ip)
 					freshAddrPool = append(freshAddrPool, pinfo.Addr())
 					ids = append(ids, pinfo.Id)
 					addrs = append(addrs, pinfo.Addr())
@@ -231,7 +235,14 @@ func (n *nodemap) DiscoverNetwork(addr node.Addr, verbose bool) (error, *Network
 	}
 
 	if err == nil {
-		PrintAsciiOutput(clusterOverview, networkGridAccumulator.grid, verbose)
+
+		if silent == false {
+			PrintAsciiOutput(clusterOverview, networkGridAccumulator.grid, verbose)
+		}
+
+		if outputImage != "" {
+			BuildImageOutput(outputImage, clusterOverview, networkGridAccumulator.grid, outputTheme)
+		}
 
 	} else {
 		return err, nil

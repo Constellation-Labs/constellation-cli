@@ -2,26 +2,20 @@ package commands
 
 import (
 	nodegrid2 "constellation/internal/cli/nodegrid"
-	"constellation/pkg/node"
-	"fmt"
 	"github.com/spf13/cobra"
-	"os"
-	"strings"
 )
 
 func init() {
-	home := strings.TrimRight(os.Getenv("HOME"), "/")
 
 	rootCmd.AddCommand(nodegridCmd)
 	nodegridCmd.Flags().BoolP("silent", "s", false, "run in silent mode")
 	nodegridCmd.Flags().StringP("image", "i", "", "image file path for graphical output")
 	nodegridCmd.Flags().StringP("theme", "t", "transparent", "background theme for image output [light/dark]")
 	nodegridCmd.Flags().BoolP("verbose", "v", false, "provide more detailed output")
-	nodegridCmd.Flags().StringP("operators", "o", fmt.Sprintf("%s/operators", home), "operators file in csv format")
 }
 
 func executeNodegrid(cmd *cobra.Command, args []string) {
-	addr := args[0]
+	url := args[0]
 	silent, _ := cmd.Flags().GetBool("silent")
 	outputImage, _ := cmd.Flags().GetString("image")
 	outputTheme, _ := cmd.Flags().GetString("theme")
@@ -30,7 +24,7 @@ func executeNodegrid(cmd *cobra.Command, args []string) {
 
 	ng := nodegrid2.NewNodegrid(operatorsFile)
 
-	ng.BuildNetworkStatus(node.AddrOf(addr), silent, outputImage, outputTheme, verbose)
+	ng.BuildNetworkStatus(url, silent, outputImage, outputTheme, verbose)
 }
 
 var nodegridCmd = &cobra.Command{

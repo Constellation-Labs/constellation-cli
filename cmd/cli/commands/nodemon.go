@@ -2,7 +2,6 @@ package commands
 
 import (
 	nodemon2 "constellation/internal/cli/nodemon"
-	"constellation/pkg/node"
 	"fmt"
 	"github.com/spf13/cobra"
 	"os"
@@ -24,7 +23,7 @@ func init() {
 }
 
 func executeNodemon(cmd *cobra.Command, args []string) {
-	addr := args[0]
+	url := args[0]
 	operatorsFile, _ := cmd.Flags().GetString("operators")
 	outputTheme, _ := cmd.Flags().GetString("theme")
 	configFile, _ := cmd.Flags().GetString("configFile")
@@ -32,7 +31,7 @@ func executeNodemon(cmd *cobra.Command, args []string) {
 
 	nm := nodemon2.NewNodemon()
 
-	nm.ExecuteNodesCheck(node.AddrOf(addr), configFile, statusFile, outputTheme, operatorsFile)
+	nm.ExecuteNodesCheck(url, configFile, statusFile, outputTheme, operatorsFile)
 }
 
 var nodemonCmd = &cobra.Command{

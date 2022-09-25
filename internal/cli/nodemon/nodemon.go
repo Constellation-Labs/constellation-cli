@@ -12,11 +12,10 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"time"
 )
 
 type Nodemon interface {
-	ExecuteNodesCheck(url node.Addr, configFile string, statusFile string, outputTheme string, operatorsFile string)
+	ExecuteNodesCheck(url string, configFile string, statusFile string, outputTheme string, operatorsFile string)
 }
 
 type nodemon struct{}
@@ -25,7 +24,7 @@ func NewNodemon() Nodemon {
 	return &nodemon{}
 }
 
-func (*nodemon) ExecuteNodesCheck(addr node.Addr, configFile string, statusFile string, outputTheme string, operatorsFile string) {
+func (*nodemon) ExecuteNodesCheck(url string, configFile string, statusFile string, outputTheme string, operatorsFile string) {
 	configFileBytes, err := ioutil.ReadFile(configFile)
 
 	if err != nil {
@@ -44,7 +43,7 @@ func (*nodemon) ExecuteNodesCheck(addr node.Addr, configFile string, statusFile 
 
 	fmt.Println("Gathering and building cluster status")
 
-	err, networkStatus := ng.BuildNetworkStatus(addr, true, imageFile, outputTheme, false)
+	err, networkStatus := ng.BuildNetworkStatus(url, true, imageFile, outputTheme, false)
 
 	if err != nil {
 		log.Printf("Error building network status")
@@ -62,26 +61,27 @@ func (*nodemon) ExecuteNodesCheck(addr node.Addr, configFile string, statusFile 
 
 	fmt.Println("Verifying slow nodes")
 
-	for _, n := range networkStatus.NodesList {
-		if n.AvgResponseDuration.Milliseconds() > nodegrid2.LatencyTriggerMilliseconds &&
-			n.AvgResponseDuration <= 29*time.Second {
-
-			slowNodes = append(slowNodes, n.SelfInfo.Id)
-			if op, v := nodeOps[n.SelfInfo.Id]; v {
-				slowNodesOperators = append(slowNodesOperators, op)
-			}
-		}
-
-		if n.AvgResponseDuration > 29*time.Second {
-			offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s:%s", "Nodegrid", n.SelfInfo.Id, n.SelfInfo.CardinalState()))
-			offlineNodesObservationCount++
-			offlineNodes[n.SelfInfo.Id] = true
-
-			if op, v := nodeOps[n.SelfInfo.Id]; v {
-				offlineNodeOperators[op] = true
-			}
-		}
-	}
+	// obsolete for now
+	//for _, n := range networkStatus.NodesList {
+	//	if n.AvgResponseDuration.Milliseconds() > nodegrid2.LatencyTriggerMilliseconds &&
+	//		n.AvgResponseDuration <= 29*time.Second {
+	//
+	//		slowNodes = append(slowNodes, n.SelfInfo.Id)
+	//		if op, v := nodeOps[n.SelfInfo.Id]; v {
+	//			slowNodesOperators = append(slowNodesOperators, op)
+	//		}
+	//	}
+	//
+	//	if n.AvgResponseDuration > 29*time.Second {
+	//		offlineObservations = append(offlineObservations, fmt.Sprintf("%s=%s:%s", "Nodegrid", n.SelfInfo.Id, n.SelfInfo.CardinalState()))
+	//		offlineNodesObservationCount++
+	//		offlineNodes[n.SelfInfo.Id] = true
+	//
+	//		if op, v := nodeOps[n.SelfInfo.Id]; v {
+	//			offlineNodeOperators[op] = true
+	//		}
+	//	}
+	//}
 
 	fmt.Println("Reviewing offline nodes and redownloads")
 

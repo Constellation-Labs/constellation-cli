@@ -1,6 +1,7 @@
 package nodegrid
 
 import (
+	"constellation/pkg/lb"
 	"constellation/pkg/node"
 	"github.com/jszwec/csvutil"
 	log "github.com/sirupsen/logrus"
@@ -13,7 +14,7 @@ import (
 
 type Nodegrid interface {
 	// Split this as it mixes two concerns
-	BuildNetworkStatus(url node.Addr, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus)
+	BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus)
 	Operators() map[string]Operator
 }
 
@@ -152,10 +153,8 @@ type NodeOverview struct {
 	Ip         string
 	PublicPort int
 
-	SelfInfo            *node.PeerInfo
-	AvgResponseDuration time.Duration
-	Operator            *Operator
-	Metrics             *node.Metrics
+	LbInfo   node.PeerInfo
+	SelfInfo *node.PeerInfo
 }
 
 type networkGrid struct {
@@ -173,18 +172,17 @@ type NetworkStatus struct {
 	NodesGrid map[string]map[string]*node.PeerInfo
 }
 
-func (n *nodegrid) BuildNetworkStatus(addr node.Addr, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus) {
+func (n *nodegrid) BuildNetworkStatus(url string, silent bool, outputImage string, outputTheme string, verbose bool) (error, *NetworkStatus) {
 
-	//TODO: Until we do not have lb we will query a node
-	clusterInfo, err := node.GetPublicClient(addr).ClusterInfo()
+	clusterNodes, err := lb.GetClient(url).GetClusterNodes()
 
 	if err != nil {
 		panic(err)
 	}
 
-	addrs := make([]node.Addr, len(*clusterInfo.Peers))
+	addrs := make([]node.Addr, len(*clusterNodes))
 
-	for i, v := range *clusterInfo.Peers {
+	for i, v := range *clusterNodes {
 		addrs[i] = v.Addr()
 	}
 
@@ -206,9 +204,9 @@ func (n *nodegrid) BuildNetworkStatus(addr node.Addr, silent bool, outputImage s
 
 		networkGrid := <-gridResults
 
-		networkOverview := make([]NodeOverview, len(*clusterInfo.Peers))
+		networkOverview := make([]NodeOverview, len(*clusterNodes))
 
-		for i, peer := range *clusterInfo.Peers {
+		for i, peer := range *clusterNodes {
 
 			selfInfo := networkGrid.grid[peer.Id][peer.Id]
 
@@ -216,10 +214,9 @@ func (n *nodegrid) BuildNetworkStatus(addr node.Addr, silent bool, outputImage s
 				peer.Id,
 				peer.Ip,
 				peer.PublicPort,
+				peer,
 				selfInfo,
-				networkGrid.latency[peer.Id],
-				nil,
-				nil} // TODO: replace with real values
+			}
 		}
 
 		sort.Slice(networkOverview, func(i, j int) bool {

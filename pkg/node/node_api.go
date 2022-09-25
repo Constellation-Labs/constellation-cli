@@ -86,8 +86,7 @@ func (n *node) ClusterInfo() (*ClusterInfo, error) {
 
 	if resp.StatusCode != 200 {
 		log.Debugf("Node %s returned status code=%d", url.String(), resp.StatusCode)
-
-		return nil, err
+		return nil, fmt.Errorf("unexpected result status code from lb is %d", resp.StatusCode)
 	}
 
 	defer resp.Body.Close()

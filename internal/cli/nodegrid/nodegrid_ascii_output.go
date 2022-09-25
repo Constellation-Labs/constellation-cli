@@ -15,12 +15,13 @@ const (
 	ObservingColor   = "\033[1;36m%s\033[0m"
 )
 
-func printableNodeStatus(metrics *node.Metrics) string {
-	if metrics == nil {
-		return fmt.Sprintf("/"+StatusColorFmt(node.Offline), node.Offline)
-	}
+// TODO: Verify if this is based on lb or not
+func printableNodeStatus(no NodeOverview) string {
+	//if no.SelfInfo == nil {
+	//	return fmt.Sprintf("/"+StatusColorFmt(node.Offline), node.Offline)
+	//}
 
-	return fmt.Sprintf("/"+StatusColorFmt(metrics.NodeState), metrics.NodeState)
+	return fmt.Sprintf("/"+StatusColorFmt(no.LbInfo.CardinalState()), no.LbInfo.CardinalState())
 }
 
 func StatusColorFmt(status node.NodeState) string {
@@ -29,6 +30,8 @@ func StatusColorFmt(status node.NodeState) string {
 	case node.Initial:
 		return OfflineColor
 	case node.ReadyToJoin:
+		return WarningColor
+	case node.WaitingForDownload:
 		return WarningColor
 	case node.LoadingGenesis:
 		return WarningColor
@@ -44,12 +47,12 @@ func StatusColorFmt(status node.NodeState) string {
 		return OfflineColor
 	case node.Offline:
 		return OfflineColor
-	case node.Unknown:
-		return UnknownColor
 	case node.Observing:
 		return ObservingColor
 	case node.Undefined:
 		return UndefinedColor
+	case node.NotSupported:
+		return UnknownColor
 	default:
 		return UnknownColor
 	}
@@ -62,6 +65,8 @@ func StatusSymbol(status node.NodeState) string {
 	case node.Initial:
 		return `==`
 	case node.ReadyToJoin:
+		return `==`
+	case node.WaitingForDownload:
 		return `==`
 	case node.LoadingGenesis:
 		return `∎∎`
@@ -77,7 +82,7 @@ func StatusSymbol(status node.NodeState) string {
 		return `==`
 	case node.Offline:
 		return `--`
-	case node.Unknown:
+	case node.NotSupported:
 		return `∎∎`
 	case node.Undefined:
 		return `~~`
@@ -111,14 +116,6 @@ func fmtLatencyAscii(d time.Duration) string {
 	return lat
 }
 
-func operatorName(ni NodeOverview) string {
-	if ni.Operator != nil {
-		return fmt.Sprintf("%s <%s>", ni.Operator.Name, ni.Operator.DiscordId)
-	}
-
-	return ""
-}
-
 func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string]*node.PeerInfo, verbose bool) {
 
 	fmt.Printf("Constellation Hypergraph Network nodes [%d], majority status\n", len(clusterOverview))
@@ -130,44 +127,28 @@ func PrintAsciiOutput(clusterOverview []NodeOverview, grid map[string]map[string
 	}
 
 	for i, nodeOverview := range clusterOverview {
-		var version = "?"
-		var snap = "?"
-		var latency = "♾"
-
-		if nodeOverview.Metrics != nil {
-			version = nodeOverview.Metrics.Version
-			snap = nodeOverview.Metrics.LastSnapshotHeight
-		}
-
-		latency = fmtLatencyAscii(nodeOverview.AvgResponseDuration)
 
 		if verbose {
-			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-129s %-20s %-40s %-21s %-10s %-10s %-10s %s%s\n",
+			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-9s %-20s %-21s %s%s\n",
 				i,
-				nodeOverview.SelfInfo.Id,
+				nodeOverview.SelfInfo.ShortId(),
 				nodeOverview.SelfInfo.Ip, // TODO: replace with alias if available
-				operatorName(nodeOverview),
 				fmt.Sprintf("%s:%d", nodeOverview.SelfInfo.Ip, nodeOverview.SelfInfo.PublicPort),
-				version,
-				snap,
-				latency,
+
 				fmt.Sprintf(StatusColorFmt(nodeOverview.SelfInfo.CardinalState()), nodeOverview.SelfInfo.CardinalState()), // TODO: no status in peer info
-				printableNodeStatus(nodeOverview.Metrics))
+				printableNodeStatus(nodeOverview))
 		} else {
 			selfState := node.Undefined
 			if nodeOverview.SelfInfo != nil {
 				selfState = nodeOverview.SelfInfo.CardinalState()
 			}
 
-			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-20s %-21s %-10s %-10s %-10s %s%s\n",
+			fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-9s %-21s %s%s\n",
 				i,
-				nodeOverview.Ip,
+				nodeOverview.SelfInfo.ShortId(),
 				fmt.Sprintf("%s:%d", nodeOverview.Ip, nodeOverview.PublicPort),
-				version,
-				snap,
-				latency,
 				fmt.Sprintf(StatusColorFmt(selfState), selfState),
-				printableNodeStatus(nodeOverview.Metrics))
+				printableNodeStatus(nodeOverview))
 		}
 	}
 

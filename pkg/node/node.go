@@ -11,21 +11,23 @@ import (
 type NodeState string
 
 const (
-	Initial         NodeState = "Initial"
-	ReadyToJoin     NodeState = "ReadyToJoin"
-	LoadingGenesis  NodeState = "LoadingGenesis"
-	GenesisReady    NodeState = "GenesisReady"
-	StartingSession NodeState = "StartingSession"
-	SessionStarted  NodeState = "SessionStarted"
-	Ready           NodeState = "Ready"
-	Leaving         NodeState = "Leaving"
-	Offline         NodeState = "Offline"
-	Unknown         NodeState = "Unknown"
-	Observing       NodeState = "Observing"
-	Undefined       NodeState = "Undefined" // Internal status when we could not obtain status for the node
+	Initial            NodeState = "Initial"
+	ReadyToJoin        NodeState = "ReadyToJoin"
+	WaitingForDownload NodeState = "WaitingForDownload"
+	LoadingGenesis     NodeState = "LoadingGenesis"
+	GenesisReady       NodeState = "GenesisReady"
+	StartingSession    NodeState = "StartingSession"
+	SessionStarted     NodeState = "SessionStarted"
+	Ready              NodeState = "Ready"
+	Leaving            NodeState = "Leaving"
+	Offline            NodeState = "Offline"
+	Observing          NodeState = "Observing"
+
+	NotSupported NodeState = "NotSupported" // Internal fallback status when not recognized
+	Undefined    NodeState = "Undefined"    // Internal status when we could not obtain status for the node
 )
 
-var ValidStatuses = [...]NodeState{Initial, ReadyToJoin, LoadingGenesis, GenesisReady, StartingSession, SessionStarted, Ready, Leaving, Offline, Unknown, Observing, Undefined}
+var ValidStatuses = [...]NodeState{Initial, ReadyToJoin, WaitingForDownload, LoadingGenesis, GenesisReady, StartingSession, SessionStarted, Ready, Leaving, Offline, NotSupported, Observing, Undefined}
 
 func IsRedownloading(status NodeState) bool {
 	return status == LoadingGenesis
@@ -42,9 +44,9 @@ func StateFromString(in string) NodeState {
 		}
 	}
 
-	log.Debugf("Status=%s is unknown", in)
+	log.Debugf("Status=%s is unknown to the cli tool", in)
 
-	return Unknown
+	return NotSupported
 }
 
 type Addr struct {
@@ -79,10 +81,9 @@ func (pi *PeerInfo) CardinalState() NodeState {
 
 // TODO: this is a placeholder
 type Metrics struct {
-	Version            string
-	LastSnapshotHeight string
-	NodeState          NodeState
-	Alias              string
+	PublicPort string
+	Session    int
+	NodeState  NodeState
 }
 
 // :9000/debug/peers
@@ -93,6 +94,10 @@ func (p *PeerInfo) Addr() Addr {
 		p.Ip,
 		p.PublicPort,
 	}
+}
+
+func (p *PeerInfo) ShortId() string {
+	return p.Id[0:8]
 }
 
 func AddrOf(in string) Addr {

@@ -3,6 +3,7 @@ package nodegrid
 import (
 	"constellation/pkg/node"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/rasterizer"
 	"image/color"
@@ -16,6 +17,8 @@ func statusColorRGB(status node.NodeState) color.RGBA {
 		return color.RGBA{R: 247, G: 247, B: 52, A: 255}
 	case node.ReadyToJoin:
 		return color.RGBA{R: 247, G: 247, B: 52, A: 255}
+	case node.WaitingForDownload:
+		return color.RGBA{R: 247, G: 247, B: 52, A: 255}
 	case node.LoadingGenesis:
 		return color.RGBA{R: 247, G: 247, B: 52, A: 255}
 	case node.Initial:
@@ -24,13 +27,15 @@ func statusColorRGB(status node.NodeState) color.RGBA {
 		return color.RGBA{R: 230, G: 78, B: 18, A: 255}
 	case node.SessionStarted:
 		return color.RGBA{R: 98, G: 191, B: 67, A: 255}
+	case node.Observing:
+		return color.RGBA{R: 96, G: 255, B: 253, A: 255}
 	case node.GenesisReady:
 		return color.RGBA{R: 98, G: 191, B: 67, A: 255}
 	case node.Ready:
 		return color.RGBA{R: 98, G: 191, B: 67, A: 255}
 	case node.Offline:
 		return color.RGBA{R: 230, G: 78, B: 18, A: 255}
-	case node.Unknown:
+	case node.NotSupported:
 		return color.RGBA{R: 98, G: 186, B: 221, A: 255}
 	case node.Undefined:
 		return color.RGBA{R: 153, G: 102, B: 102, A: 255}
@@ -38,15 +43,17 @@ func statusColorRGB(status node.NodeState) color.RGBA {
 	return color.RGBA{R: 153, G: 102, B: 102, A: 255}
 }
 
-func nodeStatusString(metrics *node.Metrics) string {
-	if metrics == nil {
+func nodeStatusString(no NodeOverview) string {
+	if no.SelfInfo == nil {
 		return "Offline"
 	}
 
-	return fmt.Sprintf("%s", metrics.NodeState)
+	return fmt.Sprintf("%s", no.SelfInfo.CardinalState())
 }
 
 func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[string]map[string]*node.PeerInfo, outputTheme string) {
+	log.Info("Drawing network according to the discovered grid")
+
 	baseXMargin := float64(4)
 
 	ordOffsetX := baseXMargin
@@ -88,7 +95,6 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 	}
 
 	var backgroundColor = canvas.Transparent
-	var alertColor = color.RGBA{R: 255, G: 0, B: 0, A: 255}
 	var textColor = canvas.Black
 
 	ctx.SetFillColor(backgroundColor)
@@ -126,9 +132,7 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 	var lastTextPosY = float64(0)
 
 	for i, nodeOverview := range clusterOverview {
-		var version = "?"
-		var snap = "?"
-		var latency = "?"
+
 		// segfault
 		selfInfoState := node.Undefined
 		if nodeOverview.SelfInfo != nil {
@@ -137,18 +141,9 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 
 		statusTextFace1 := statusColorRGB(selfInfoState)
 		var statusTextFace2 = statusColorRGB(node.Offline)
-		var latencyColor = textColor
 
-		if nodeOverview.Metrics != nil {
-			version = nodeOverview.Metrics.Version
-			snap = nodeOverview.Metrics.LastSnapshotHeight
-			statusTextFace2 = statusColorRGB(nodeOverview.Metrics.NodeState)
-		}
-
-		latency = fmtLatency(nodeOverview.AvgResponseDuration)
-
-		if nodeOverview.AvgResponseDuration.Milliseconds() >= LatencyTriggerMilliseconds {
-			latencyColor = alertColor
+		if nodeOverview.SelfInfo != nil {
+			statusTextFace2 = statusColorRGB(nodeOverview.SelfInfo.CardinalState())
 		}
 
 		offsetY := float64(i+1) * textHeight
@@ -159,17 +154,11 @@ func BuildImageOutput(target string, clusterOverview []NodeOverview, grid map[st
 
 		ctx.DrawText(nameOffsetX, textPosY, canvas.NewTextBox(textFace, nodeOverview.Ip, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0)) // TODO: Alias
 		ctx.DrawText(addrOffsetX, textPosY, canvas.NewTextBox(textFace, nodeOverview.Ip, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
-		ctx.DrawText(versionOffsetX, textPosY, canvas.NewTextBox(textFace, version, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
-		ctx.DrawText(snapshotOffsetX, textPosY, canvas.NewTextBox(textFace, snap, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 
-		ctx.DrawText(latencyOffsetX, textPosY, canvas.NewTextBox(
-			fontFamily.Face(20.0, latencyColor, canvas.FontRegular, canvas.FontNormal),
-			latency, 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
-
-		ctx.DrawText(statusLbOffsetX, textPosY, canvas.NewTextBox(fontFamily.Face(20.0, statusTextFace1, canvas.FontRegular, canvas.FontNormal), fmt.Sprintf("%s", selfInfoState), 0.0, 0.0, canvas.Right, canvas.Top, 0.0, 0.0))
+		ctx.DrawText(statusLbOffsetX, textPosY, canvas.NewTextBox(fontFamily.Face(20.0, statusTextFace2, canvas.FontRegular, canvas.FontNormal), nodeStatusString(nodeOverview), 0.0, 0.0, canvas.Right, canvas.Top, 0.0, 0.0))
 		ctx.DrawText(statusSeparatorOffsetX, textPosY, canvas.NewTextBox(textFace, "/", 0.0, 0.0, canvas.Center, canvas.Top, 0.0, 0.0))
 
-		ctx.DrawText(statusLocalOffsetX, textPosY, canvas.NewTextBox(fontFamily.Face(20.0, statusTextFace2, canvas.FontRegular, canvas.FontNormal), nodeStatusString(nodeOverview.Metrics), 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
+		ctx.DrawText(statusLocalOffsetX, textPosY, canvas.NewTextBox(fontFamily.Face(20.0, statusTextFace1, canvas.FontRegular, canvas.FontNormal), fmt.Sprintf("%s", selfInfoState), 0.0, 0.0, canvas.Left, canvas.Top, 0.0, 0.0))
 	}
 
 	lastTextPosY = lastTextPosY - textHeight*2

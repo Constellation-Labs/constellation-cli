@@ -15,7 +15,7 @@ func PrintAsciiOutput(clusterOverview []ClusterNode, grid map[string]map[string]
 
 	fmt.Printf("Cluster discovery result nodes [%d]\n", len(clusterOverview))
 
-	fmt.Printf("\u001B[1;35m##  %-132s %-21s %s\u001B[0m\n", "Id", "Address", "Status")
+	fmt.Printf("\u001B[1;35m##  %-9s %-21s %s\u001B[0m\n", "Id", "Address", "Status")
 
 	for i, nodeOverview := range clusterOverview {
 
@@ -25,9 +25,9 @@ func PrintAsciiOutput(clusterOverview []ClusterNode, grid map[string]map[string]
 		}
 		log.Debug(nodeOverview.SelfInfo)
 
-		fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-132s %-21s %-10s\n",
+		fmt.Printf("\u001B[1;36m%02d\u001B[0m  %-9s %-21s %-10s\n",
 			i,
-			nodeOverview.Id,
+			nodeOverview.SelfInfo.ShortId(),
 			fmt.Sprintf("%s:%d", nodeOverview.Addr.Ip, nodeOverview.Addr.Port),
 			fmt.Sprintf(nodegrid.StatusColorFmt(selfState), selfState))
 	}
