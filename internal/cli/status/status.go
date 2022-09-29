@@ -47,7 +47,7 @@ func (s *status) ProvideAsciiStatus(nodeId string) {
 		case "Observing":
 			fmt.Println("💜")
 		default:
-			fmt.Println("🖤")
+			fmt.Println("💙")
 		}
 		fmt.Println("---")
 
