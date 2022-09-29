@@ -15,7 +15,13 @@ func init() {
 }
 
 func executeNodegrid(cmd *cobra.Command, args []string) {
-	url := args[0]
+
+	url := "https://l0-lb-mainnet.constellationnetwork.io/"
+
+	if len(args) > 0 {
+		url = args[0]
+	}
+
 	silent, _ := cmd.Flags().GetBool("silent")
 	outputImage, _ := cmd.Flags().GetString("image")
 	outputTheme, _ := cmd.Flags().GetString("theme")
@@ -29,8 +35,8 @@ func executeNodegrid(cmd *cobra.Command, args []string) {
 
 var nodegridCmd = &cobra.Command{
 	Use:   "nodegrid [url]",
-	Short: "Build and verify Constellation Hypergraph Network status for a given loadbalancer status url",
-	Args:  cobra.ExactArgs(1), // replace with url validation
+	Short: "Build and verify Constellation Hypergraph Network status for a given loadbalancer status url. If not provided mainnet 2.0 lb is used",
+	Args:  cobra.ExactArgs(0), // replace with url validation
 	Run: func(cmd *cobra.Command, args []string) {
 		executeNodegrid(cmd, args)
 	},
