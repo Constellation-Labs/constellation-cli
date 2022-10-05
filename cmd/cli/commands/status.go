@@ -25,7 +25,7 @@ func executeStatus(cmd *cobra.Command, args []string) {
 var statusCmd = &cobra.Command{
 	Use:   "status [node-id] ([lb-url])",
 	Short: "Node status in ASCII",
-	Args:  cobra.ExactArgs(1), // replace with url validation
+	Args:  cobra.RangeArgs(1, 2), // replace with url validation
 	Run: func(cmd *cobra.Command, args []string) {
 		executeStatus(cmd, args)
 	},
