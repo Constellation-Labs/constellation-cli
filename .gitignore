@@ -1,6 +1,10 @@
+./constellation-cli
+./constellation-updater
 ./cl_cli
 /.idea
 *.iml
 go.sum
 cl_cli
+constellation-cli
+constellation-updater
 *.png
