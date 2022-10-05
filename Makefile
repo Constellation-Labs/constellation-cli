@@ -21,7 +21,7 @@ clean:
 # Cross compilation
 build-linux:
 		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o constellation-updater -v ./cmd/updater && $(GOBUILD) -o constellation-cli -v ./cmd/cli
-build-macos-arm:
+build-macos-arm64:
 		CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GOBUILD) -o constellation-updater -v ./cmd/updater && $(GOBUILD) -o constellation-cli -v ./cmd/cli
 build-macos-amd64:
 		CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) -o constellation-updater -v ./cmd/updater && $(GOBUILD) -o constellation-cli -v ./cmd/cli
