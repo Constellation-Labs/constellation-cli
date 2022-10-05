@@ -7,18 +7,17 @@ BINARY_NAME=cl_cli
 
 all: test build
 build:
-		$(GOBUILD) -o $(BINARY_NAME) -v
+		echo "Building updater"
+		$(GOBUILD) -i -a -v -o constellation-updater ./cmd/updater
+		echo "Building cli tool"
+		$(GOBUILD) -i -a -v -o constellation-cli ./cmd/cli
 test:
 		$(GOTEST) -v ./...
 clean:
 		$(GOCLEAN)
 		rm -f $(BINARY_NAME)
 		rm -f $(BINARY_UNIX)
-run:
-		$(GOBUILD) -o $(BINARY_NAME) -v ./...
-		./$(BINARY_NAME)
-
 
 # Cross compilation
 build-linux:
-		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BINARY_NAME) -v
+		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o constellation-updater -v ./cmd/updater && $(GOBUILD) -o constellation-cli -v ./cmd/cli

@@ -1,62 +1,74 @@
 package lb
 
 import (
-	"constellation_cli/pkg/node"
+	"constellation/pkg/node"
 	"encoding/json"
-	"io/ioutil"
-	"log"
+	log "github.com/sirupsen/logrus"
+	"io"
 	"net/http"
-	"strings"
+	"net/url"
 )
 
-
 type Loadbalancer interface {
-	GetClusterInfo() (*node.ClusterInfo, error)
+	GetClusterNodes() (*node.Peers, error)
 }
 
 type loadbalancer struct {
 	url string
 }
 
-// lb.constellationnetwork.io:9000
-func (lb *loadbalancer) GetClusterInfo() (*node.ClusterInfo, error) {
-	endpointUrl := strings.TrimRight(lb.url, "/") + "/cluster/info"
+func (n *loadbalancer) GetClusterNodes() (*node.Peers, error) {
 
-	resp, err := http.Get(endpointUrl)
+	url, err := url.Parse(n.url)
+
+	url.Path = "/cluster/info"
 
 	if err != nil {
-		log.Fatalf("Cannot execute request err=%s", err.Error())
+		log.Debugf("Cannot parse url=%s error=%s", n.url, err.Error())
+		return nil, err
+	}
+
+	log.Debugf("Make request for peers on %s", url.String())
+
+	resp, err := http.Get(url.String())
+
+	if err != nil {
+		log.Debugf("Node %s is not operational at the moment, returned error=%s", url.String(), err.Error())
 
 		return nil, err
 	}
 
-	if (resp.StatusCode != 200) { // TODO: Find constants for http status codes in go std lib
-		log.Fatal("Loadbalancer is not operational at the moment, returned http code=503")
-		return nil, nil
+	if resp.StatusCode != 200 {
+		log.Debugf("Node %s returned status code=%d", url.String(), resp.StatusCode)
+
+		return nil, err
 	}
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	if err != nil {
-		log.Fatalf("Cannot read response body, lb resp code=%d err=%s", resp.StatusCode, err.Error())
+		log.Errorf("Failed to read node response body from=%s error=%s status=%d\n", url.String(), err.Error(), resp.StatusCode)
 		return nil, err
 	}
 
-	ci := node.ClusterInfo{}
+	ci := node.Peers{}
 
 	err = json.Unmarshal(body, &ci)
 
 	if err != nil {
-		log.Fatalf("Cannot unmarshal JSON response error=%s body=%s", err.Error(), string(body))
+		log.Errorf("Failed to unmarshal node response body from=%s error=%s body=%s status=%d", url.String(), err.Error(), string(body), resp.StatusCode)
+
 		return nil, err
 	}
+
+	log.Trace(ci)
 
 	return &ci, nil
 }
 
 func GetClient(url string) Loadbalancer {
 
-	return & loadbalancer { url }
+	return &loadbalancer{url}
 }

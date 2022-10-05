@@ -16,7 +16,7 @@ jobs:
       - name: Set up Go Lang
         uses: actions/setup-go@v1
         with:
-          go-version: '1.14'
+          go-version: '1.19'
       - name: Get release
         id: get_release
         uses: bruceadams/get-release@v1.2.0
@@ -38,7 +38,7 @@ jobs:
       - name: Set up Go Lang
         uses: actions/setup-go@v1
         with:
-          go-version: '1.14'
+          go-version: '1.19'
       - name: Get release
         id: get_release
         uses: bruceadams/get-release@v1.2.0
@@ -60,7 +60,7 @@ jobs:
       - name: Set up Go Lang
         uses: actions/setup-go@v1
         with:
-          go-version: '1.14'
+          go-version: '1.19'
       - name: Get release
         id: get_release
         uses: bruceadams/get-release@v1.2.0
