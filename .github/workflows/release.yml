@@ -43,7 +43,7 @@ jobs:
         id: get_release
         uses: bruceadams/get-release@v1.2.0
       - name: Build arm64
-        run: make build-macos-arm64 && mv constellation-cli constellation-cli-macos-arm64 && build-macos-adm64 && mv constellation-cli constellation-cli-macos-amd64
+        run: make build-macos-arm64 && mv constellation-cli constellation-cli-macos-arm64 && make build-macos-adm64 && mv constellation-cli constellation-cli-macos-amd64
       - name: Upload Release Asset arm64
         id: upload-release-asset-arm64
         uses: actions/upload-release-asset@v1
@@ -61,6 +61,7 @@ jobs:
           asset_name: constellation-cli-macos-amd64
           asset_content_type: application/zip
   build-windows:
+    if: ${{ false }} # disabled
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
